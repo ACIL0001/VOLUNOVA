@@ -13,7 +13,6 @@ import {
   Building2,
   HeartHandshake,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -84,10 +83,6 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#e6f4f2] text-[#0d7a6f] border border-[#b2ded8]">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>VOLUNOVA Auth v2.0</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0b1f3a] tracking-tight">
             {t('auth.login_title')}
           </h1>
