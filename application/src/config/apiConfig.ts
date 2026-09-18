@@ -13,7 +13,17 @@ export const BACKEND_PORT = 5000;
  * - Android Emulator (10.0.2.2)
  * - Web browser (window.location.hostname or 127.0.0.1)
  */
+let customBackendIp: string | null = null;
+
+export function setCustomBackendIp(ip: string | null) {
+  customBackendIp = ip;
+}
+
 export function getBackendUrl(): string {
+  if (customBackendIp) {
+    return `http://${customBackendIp}:${BACKEND_PORT}/api`;
+  }
+
   // 1. Web environment (always use 127.0.0.1 instead of localhost to bypass 30s Windows IPv6 timeout)
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location?.hostname) {
@@ -30,16 +40,17 @@ export function getBackendUrl(): string {
   const scriptURL: string | undefined = NativeModules.SourceCode?.scriptURL;
   if (scriptURL) {
     const match = scriptURL.match(/https?:\/\/([^/:]+)/);
-    if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+    if (
+      match &&
+      match[1] &&
+      match[1] !== 'localhost' &&
+      match[1] !== '127.0.0.1' &&
+      match[1] !== '10.0.2.2'
+    ) {
       return `http://${match[1]}:${BACKEND_PORT}/api`;
     }
   }
 
-  // 3. Android Emulator without Metro script URL
-  if (Platform.OS === 'android') {
-    return `http://10.0.2.2:${BACKEND_PORT}/api`;
-  }
-
-  // 4. Default to current Wi-Fi LAN IP
+  // 3. For physical mobile devices on Wi-Fi (Expo Go on iPhone & Android)
   return `http://${DEFAULT_LAN_IP}:${BACKEND_PORT}/api`;
 }
