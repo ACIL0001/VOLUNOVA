@@ -14,6 +14,12 @@ export const fr = {
     contact: 'Contact',
     help: 'Aide',
     system_tag: 'Système Opérationnel du Bénévolat',
+    notifications: 'Notifications',
+    new_badge: 'nouveau',
+    mark_all_read: 'Tout marquer comme lu',
+    no_notifications: 'Aucune notification pour le moment',
+    invitation_accepted_title: 'Invitation acceptée ! 🎉',
+    volunteer_joined: 'a accepté l\'invitation pour',
   },
   hero: {
     badge: 'Système Opérationnel de Bénévolat Propulsé par l\'IA',
@@ -132,6 +138,8 @@ export const fr = {
     invited_btn: 'Invité',
     loading: 'Chargement de la salle des opérations...',
     not_found: 'Mission introuvable',
+    accept_role_btn: 'Accepter ce rôle',
+    you_joined: 'Inscrit',
   },
   demo: {
     banner_title: 'Contrôleur de Démo Pitch Double Écran (180s)',

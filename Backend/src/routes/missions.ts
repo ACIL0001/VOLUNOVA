@@ -290,6 +290,43 @@ router.post(
           channel: 'in_app',
         });
 
+        // Create in-app notification for the organization
+        if (mission?.orgId) {
+          let orgUserId = null;
+          const org = await Organization.findById(mission.orgId);
+          if (org?.userId) {
+            orgUserId = org.userId;
+          } else {
+            const directUser = await User.findById(mission.orgId);
+            if (directUser) {
+              orgUserId = directUser._id;
+            }
+          }
+
+          if (orgUserId) {
+            await Notification.create({
+              userId: orgUserId,
+              type: 'application_accepted',
+              payload: {
+                missionId,
+                volunteerId,
+                volunteerName: volunteer?.name || 'Bénévole',
+                roleName: updatedNeed.roleName,
+                missionTitle: mission.title,
+                message: `${volunteer?.name || 'Un bénévole'} a accepté l'invitation pour la mission "${mission.title}" (Rôle: ${updatedNeed.roleName}).`,
+              },
+              channel: 'in_app',
+            });
+
+            await triggerRealtimeEvent(`user-${orgUserId}`, 'notification_received', {
+              type: 'application_accepted',
+              volunteerName: volunteer?.name,
+              roleName: updatedNeed.roleName,
+              missionTitle: mission.title,
+            }).catch(() => {});
+          }
+        }
+
         await logAuditEvent('mission.join', volunteerId, { missionId, needId });
 
         // 3b. Dispatch Confirmation Email via Nodemailer / Resend
@@ -334,6 +371,49 @@ router.post(
         }
         throw innerErr;
       }
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    }
+  }
+);
+
+// POST /api/missions/:id/invite (Dispatch targeted invitation to volunteer)
+router.post(
+  '/:id/invite',
+  rateLimit(30, 60000),
+  authenticateToken,
+  requireRole(['organization', 'admin']),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { volunteerId, needId } = req.body;
+      const missionId = req.params.id;
+
+      const mission = await Mission.findById(missionId);
+      if (!mission) {
+        return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Mission not found' } });
+      }
+
+      const volunteer = await User.findById(volunteerId);
+      if (!volunteer) {
+        return res.status(404).json({ ok: false, error: { code: 'VOLUNTEER_NOT_FOUND', message: 'Volunteer not found' } });
+      }
+
+      const need = needId ? await MissionNeed.findById(needId) : await MissionNeed.findOne({ missionId });
+
+      await Notification.create({
+        userId: volunteer._id,
+        type: 'mission_matched',
+        payload: {
+          missionId,
+          needId: need?._id,
+          roleName: need?.roleName || 'Bénévole',
+          missionTitle: mission.title,
+          message: `L'organisation vous a invité(e) pour le rôle "${need?.roleName || 'Bénévole'}" sur la mission "${mission.title}".`,
+        },
+        channel: 'in_app',
+      });
+
+      return res.json({ ok: true, message: 'Invitation envoyée avec succès' });
     } catch (err: any) {
       return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
     }

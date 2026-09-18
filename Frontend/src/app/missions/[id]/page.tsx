@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api, Mission } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { getLocalizedMission, getLocalizedCategory, getLocalizedUrgency, getLocalizedVolunteerSkill } from '@/lib/i18nData';
 
 export default function MissionOpsRoom() {
@@ -30,6 +31,9 @@ export default function MissionOpsRoom() {
   const [loading, setLoading] = useState(true);
   const [invitedMap, setInvitedMap] = useState<Record<string, boolean>>({});
   const [autoRefreshCount, setAutoRefreshCount] = useState(0);
+  const [joiningNeedId, setJoiningNeedId] = useState<string | null>(null);
+  const [joinedNeedId, setJoinedNeedId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
@@ -55,8 +59,30 @@ export default function MissionOpsRoom() {
     return () => clearInterval(timer);
   }, [missionId]);
 
-  const handleInvite = (volId: string) => {
+  const handleInvite = async (volId: string) => {
     setInvitedMap((prev) => ({ ...prev, [volId]: true }));
+    try {
+      await api.inviteVolunteer(missionId, volId);
+    } catch (err) {
+      console.warn('Invite error:', err);
+    }
+  };
+
+  const handleJoinNeed = async (needId: string) => {
+    if (!user) {
+      window.location.href = '/login';
+      return;
+    }
+    setJoiningNeedId(needId);
+    try {
+      await api.joinMission(missionId, needId);
+      setJoinedNeedId(needId);
+      await fetchMission();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de l\'acceptation de la mission');
+    } finally {
+      setJoiningNeedId(null);
+    }
   };
 
   if (loading) {
@@ -215,6 +241,32 @@ export default function MissionOpsRoom() {
                       />
                     </div>
                   </div>
+
+                  {/* Accept / Join Action for Volunteer */}
+                  {user?.role === 'volunteer' && (
+                    <div className="mt-4 pt-3 border-t border-[#d8e0ea]/60">
+                      {mission.userApplication?.needId === need._id || joinedNeedId === need._id ? (
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 justify-center">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <span>{t('ops.you_joined')}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isFilled || joiningNeedId === need._id}
+                          onClick={() => handleJoinNeed(need._id)}
+                          className="btn-primary w-full flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-lg disabled:opacity-50"
+                        >
+                          {joiningNeedId === need._id ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5" />
+                          )}
+                          <span>{t('ops.accept_role_btn')}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

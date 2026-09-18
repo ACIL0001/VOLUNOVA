@@ -29,6 +29,20 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
   }
 });
 
+// PATCH /api/notifications/read-all
+router.patch('/read-all', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await Notification.updateMany(
+      { userId: req.user!.userId, readAt: null },
+      { readAt: new Date() }
+    );
+
+    return res.json({ ok: true, message: 'All notifications marked as read' });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
 // PATCH /api/notifications/:id/read
 router.patch('/:id/read', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {

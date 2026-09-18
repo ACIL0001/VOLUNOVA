@@ -14,6 +14,12 @@ export const en = {
     contact: 'Contact',
     help: 'Help',
     system_tag: 'AI-First Volunteer Operating System',
+    notifications: 'Notifications',
+    new_badge: 'new',
+    mark_all_read: 'Mark all as read',
+    no_notifications: 'No notifications at this time',
+    invitation_accepted_title: 'Invitation Accepted! 🎉',
+    volunteer_joined: 'accepted the invitation for',
   },
   hero: {
     badge: 'AI-First Volunteer Management Operating System',
@@ -132,6 +138,8 @@ export const en = {
     invited_btn: 'Invited',
     loading: 'Loading live operations room...',
     not_found: 'Mission not found',
+    accept_role_btn: 'Join this role',
+    you_joined: 'Joined',
   },
   demo: {
     banner_title: 'Dual-Screen Pitch Controller (180s Presentation Mode)',

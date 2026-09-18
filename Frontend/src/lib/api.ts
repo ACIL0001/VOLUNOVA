@@ -63,6 +63,25 @@ export interface ImpactStats {
   fillRatePercentage: number;
 }
 
+export interface NotificationItem {
+  _id: string;
+  userId: string;
+  type: string;
+  payload: {
+    missionId?: string;
+    volunteerId?: string;
+    volunteerName?: string;
+    roleName?: string;
+    missionTitle?: string;
+    title?: string;
+    message?: string;
+    [key: string]: any;
+  };
+  channel: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export interface ExtractedNeedsResponse {
   title: string;
   category: string;
@@ -236,6 +255,26 @@ class ApiService {
 
   async getVolunteers(): Promise<any[]> {
     return this.request<any[]>('/auth/volunteers');
+  }
+
+  // 6. Notifications
+  async getNotifications(): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
+    return this.request<{ notifications: NotificationItem[]; unreadCount: number }>('/notifications');
+  }
+
+  async markNotificationRead(id: string): Promise<any> {
+    return this.request<any>(`/notifications/${id}/read`, { method: 'PATCH' });
+  }
+
+  async markAllNotificationsRead(): Promise<any> {
+    return this.request<any>('/notifications/read-all', { method: 'PATCH' });
+  }
+
+  async inviteVolunteer(missionId: string, volunteerId: string, needId?: string): Promise<any> {
+    return this.request<any>(`/missions/${missionId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ volunteerId, needId }),
+    });
   }
 }
 

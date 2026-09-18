@@ -14,6 +14,12 @@ export const ar = {
     contact: 'اتصل بنا',
     help: 'المساعدة',
     system_tag: 'نظام تشغيل العمل التطوعي',
+    notifications: 'الإشعارات',
+    new_badge: 'جديد',
+    mark_all_read: 'تحديد الكل كمقروء',
+    no_notifications: 'لا توجد إشعارات حالياً',
+    invitation_accepted_title: 'تم قبول الدعوة! 🎉',
+    volunteer_joined: 'قبل الدعوة لمبادرة',
   },
   hero: {
     badge: 'منظومة العمل التطوعي المدعومة بالذكاء الاصطناعي',
@@ -132,6 +138,8 @@ export const ar = {
     invited_btn: 'تمت الدعوة',
     loading: 'جاري تحميل غرفة العمليات المباشرة...',
     not_found: 'المبادرة غير موجودة',
+    accept_role_btn: 'الانضمام لهذا الدور',
+    you_joined: 'مسجل',
   },
   demo: {
     banner_title: 'منظومة العرض التجريبي المزدوج المباشر',

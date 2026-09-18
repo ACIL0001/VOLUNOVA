@@ -22,8 +22,11 @@ import {
   User as UserIcon,
   Building2,
   HeartHandshake,
+  Bell,
+  UserCheck,
+  Sparkles,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, NotificationItem } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import LanguageSelector from '@/components/ui/LanguageSelector';
@@ -39,11 +42,20 @@ export default function Navbar() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close avatar dropdown when clicking outside
+  // Notification state (specifically for organization & admin)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target as Node)) {
         setAvatarMenuOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -54,7 +66,62 @@ export default function Navbar() {
   useEffect(() => {
     setAvatarMenuOpen(false);
     setMobileMenuOpen(false);
+    setNotificationOpen(false);
   }, [pathname]);
+
+  // Real-time polling for organization notifications
+  const fetchNotifications = React.useCallback(async () => {
+    if (!user || (user.role !== 'organization' && user.role !== 'admin')) return;
+    try {
+      const res = await api.getNotifications();
+      if (res && res.notifications) {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount || 0);
+      }
+    } catch {
+      // Silently ignore network hiccups
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || (user.role !== 'organization' && user.role !== 'admin')) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 4000);
+    return () => clearInterval(interval);
+  }, [user, fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.warn('Error marking all notifications as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notif: NotificationItem) => {
+    if (!notif.readAt) {
+      try {
+        await api.markNotificationRead(notif._id);
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === notif._id ? { ...n, readAt: new Date().toISOString() } : n))
+        );
+        setUnreadCount((c) => Math.max(0, c - 1));
+      } catch (err) {
+        console.warn('Error marking notification as read:', err);
+      }
+    }
+    setNotificationOpen(false);
+    if (notif.payload?.missionId) {
+      router.push(`/missions/${notif.payload.missionId}`);
+    }
+  };
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -188,6 +255,108 @@ export default function Navbar() {
               </Link>
             )}
 
+            {/* Notification Bell (Only for Organization & Admin) */}
+            {user && (user.role === 'organization' || user.role === 'admin') && (
+              <div className="relative" ref={notificationRef}>
+                <button
+                  type="button"
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  aria-expanded={notificationOpen}
+                  aria-label={t('nav.notifications')}
+                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8e0ea] bg-white text-[#5b6b7c] hover:text-[#0b1f3a] hover:border-[#b8c6d6] transition-colors"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white shadow-xs animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {notificationOpen && (
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-[#d8e0ea] bg-white shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#eef2f6]">
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4 text-[#0d7a6f]" />
+                        <span className="text-sm font-bold text-[#0b1f3a]">{t('nav.notifications')}</span>
+                        {unreadCount > 0 && (
+                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600 border border-red-200">
+                            {unreadCount} {t('nav.new_badge')}
+                          </span>
+                        )}
+                      </div>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleMarkAllRead}
+                          className="text-[11px] font-semibold text-[#0d7a6f] hover:underline"
+                        >
+                          {t('nav.mark_all_read')}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-[#f1f5f9]">
+                      {notifications.length === 0 ? (
+                        <div className="py-8 text-center px-4">
+                          <Bell className="h-7 w-7 text-[#b8c6d6] mx-auto mb-2 opacity-50" />
+                          <p className="text-xs text-[#8fa0b3] font-medium">{t('nav.no_notifications')}</p>
+                        </div>
+                      ) : (
+                        notifications.map((notif) => {
+                          const isUnread = !notif.readAt;
+                          const isAcceptance = notif.type === 'application_accepted';
+
+                          return (
+                            <button
+                              key={notif._id}
+                              type="button"
+                              onClick={() => handleNotificationClick(notif)}
+                              className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 ${
+                                isUnread ? 'bg-[#f0f9f8]/70 hover:bg-[#e6f4f2]' : 'hover:bg-[#f8fafc]'
+                              }`}
+                            >
+                              <div
+                                className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                  isAcceptance
+                                    ? 'bg-[#e6f4f2] text-[#0d7a6f] border border-[#0d7a6f]/20'
+                                    : 'bg-[#eef2f6] text-[#0b1f3a]'
+                                }`}
+                              >
+                                {isAcceptance ? <UserCheck className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`text-xs font-bold truncate ${isUnread ? 'text-[#0b1f3a]' : 'text-[#5b6b7c]'}`}>
+                                    {isAcceptance ? t('nav.invitation_accepted_title') : (notif.payload?.title || 'Notification')}
+                                  </span>
+                                  {isUnread && <span className="h-2 w-2 rounded-full bg-[#0d7a6f] flex-shrink-0" />}
+                                </div>
+
+                                <p className="text-xs text-[#5b6b7c] mt-0.5 line-clamp-2 leading-relaxed">
+                                  {notif.payload?.message || (
+                                    notif.payload?.volunteerName
+                                      ? `${notif.payload.volunteerName} ${t('nav.volunteer_joined')} "${notif.payload?.missionTitle}"`
+                                      : 'Nouvelle mise à jour'
+                                  )}
+                                </p>
+
+                                <span className="text-[10px] text-[#8fa0b3] mt-1 block">
+                                  {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Auth section */}
             {user ? (
               <div className="relative" ref={avatarMenuRef}>
@@ -271,6 +440,21 @@ export default function Navbar() {
 
           <div className="flex sm:hidden items-center gap-2">
             <LanguageSelector />
+            {user && (user.role === 'organization' || user.role === 'admin') && (
+              <button
+                type="button"
+                onClick={() => setNotificationOpen(!notificationOpen)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8e0ea] bg-white text-[#5b6b7c]"
+                aria-label={t('nav.notifications')}
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white shadow-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="rounded-lg border border-[#d8e0ea] bg-white p-2 text-[#5b6b7c]"
