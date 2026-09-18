@@ -17,7 +17,7 @@ import seedRoutes from './routes/seed';
 import adminRoutes from './routes/admin';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 // Security & Middlewares
 app.use(helmet({
@@ -45,12 +45,12 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'X-Requested-With'],
   })
 );
 
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health Check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -72,11 +72,14 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/seed', seedRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 404 Handler
+// 404 Fallback
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     ok: false,
-    error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.originalUrl} not found` },
+    error: {
+      code: 'ROUTE_NOT_FOUND',
+      message: `The endpoint ${req.method} ${req.originalUrl} does not exist on VOLUNOVA API`,
+    },
   });
 });
 
@@ -94,14 +97,19 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 // Start Server & Connect Database
 async function startServer() {
-  await connectDB();
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
-    console.log(`🚀 VOLUNOVA Backend running on: http://localhost:${PORT}`);
-    console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`⚡ 1-Click Demo Seed: POST http://localhost:${PORT}/api/seed`);
+    console.log(`🚀 VOLUNOVA Backend running on: http://0.0.0.0:${PORT}`);
+    console.log(`📡 Health check: http://0.0.0.0:${PORT}/api/health`);
+    console.log(`⚡ 1-Click Demo Seed: POST http://0.0.0.0:${PORT}/api/seed`);
     console.log(`====================================================`);
   });
+
+  try {
+    await connectDB();
+  } catch (err) {
+    console.warn('[MongoDB Initialization]', err);
+  }
 }
 
 startServer();
