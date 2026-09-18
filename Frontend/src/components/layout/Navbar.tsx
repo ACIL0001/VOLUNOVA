@@ -119,7 +119,6 @@ export default function Navbar() {
     { name: t('nav.about'), href: '/about', icon: Info },
     { name: t('nav.help'), href: '/aide', icon: CircleHelp },
     { name: t('nav.contact'), href: '/contact', icon: Phone },
-    ...(user?.role === 'admin' ? [{ name: t('nav.admin'), href: '/admin', icon: ShieldCheck }] : []),
   ];
 
   const roleInfo = getRoleBadge(user?.role);
