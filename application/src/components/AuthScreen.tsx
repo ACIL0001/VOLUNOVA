@@ -41,6 +41,9 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleFastDemoLogin = async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       const res = await fetch(`${backendUrl}/auth/login`, {
         method: 'POST',
@@ -49,7 +52,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           email: 'admin@gmail.com',
           password: 'admin1234',
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+
       const json = await res.json();
       if (json.ok && json.data) {
         await AsyncStorage.setItem('volunova_auth_token', json.data.token);
@@ -58,11 +64,19 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       } else {
         Alert.alert('Erreur', json.error?.message || 'Impossible de se connecter avec ce compte.');
       }
-    } catch (e) {
-      Alert.alert(
-        'Erreur de connexion',
-        `Impossible de joindre le serveur API (${backendUrl}). Vérifiez que votre téléphone et votre ordinateur sont sur le même réseau Wi-Fi.`
-      );
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      if (e?.name === 'AbortError') {
+        Alert.alert(
+          'Délai d\'attente dépassé (Timeout)',
+          `Le serveur (${backendUrl}) met trop de temps à répondre.\n\nVérifiez que votre PC autorise Node.js dans le pare-feu Windows ou utilisez le mode Web.`
+        );
+      } else {
+        Alert.alert(
+          'Erreur de connexion',
+          `Impossible de joindre le serveur API (${backendUrl}). Vérifiez que votre téléphone et votre ordinateur sont sur le même réseau Wi-Fi.`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -86,12 +100,17 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         ? { name, email, password, role: 'volunteer', skills, city }
         : { email, password };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const json = await res.json();
       if (json.ok && json.data) {
@@ -102,10 +121,18 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         Alert.alert('Erreur', json.error?.message || 'Identifiants invalides.');
       }
     } catch (err: any) {
-      Alert.alert(
-        'Erreur de connexion',
-        `Impossible de contacter le serveur (${backendUrl}). Vérifiez que votre appareil est connecté au même réseau Wi-Fi que le serveur.`
-      );
+      clearTimeout(timeoutId);
+      if (err?.name === 'AbortError') {
+        Alert.alert(
+          'Délai d\'attente dépassé (Timeout)',
+          `Le serveur (${backendUrl}) met trop de temps à répondre (8s).\n\nVérifiez que le pare-feu Windows sur votre PC autorise Node.js sur le réseau privé.`
+        );
+      } else {
+        Alert.alert(
+          'Erreur de connexion',
+          `Impossible de contacter le serveur (${backendUrl}). Vérifiez que votre appareil est connecté au même réseau Wi-Fi que le serveur.`
+        );
+      }
     } finally {
       setLoading(false);
     }

@@ -14,10 +14,14 @@ export const BACKEND_PORT = 5000;
  * - Web browser (window.location.hostname or 127.0.0.1)
  */
 export function getBackendUrl(): string {
-  // 1. Web environment
+  // 1. Web environment (always use 127.0.0.1 instead of localhost to bypass 30s Windows IPv6 timeout)
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location?.hostname) {
-      return `http://${window.location.hostname}:${BACKEND_PORT}/api`;
+      const host =
+        window.location.hostname === 'localhost' || window.location.hostname === '::1'
+          ? '127.0.0.1'
+          : window.location.hostname;
+      return `http://${host}:${BACKEND_PORT}/api`;
     }
     return `http://127.0.0.1:${BACKEND_PORT}/api`;
   }
