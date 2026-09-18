@@ -1,10 +1,8 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import { connectDB } from './config/db';
-
-dotenv.config();
 
 // Routes
 import authRoutes from './routes/auth';

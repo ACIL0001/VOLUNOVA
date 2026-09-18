@@ -9,7 +9,7 @@ import { rateLimit } from '../middleware/rateLimit';
 import { logAuditEvent } from '../services/auditLogger';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'volunova_jwt_fallback_secret_key_2026';
+export const getJwtSecret = () => process.env.JWT_SECRET || 'volunova_jwt_fallback_secret_key_2026';
 
 const SignupSchema = z.object({
   name: z.string().min(2).max(100),
@@ -71,7 +71,7 @@ router.post(
 
       const token = jwt.sign(
         { sub: user._id.toString(), role: user.role, email: user.email },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: '30d' }
       );
 
@@ -147,7 +147,7 @@ router.post(
 
       const token = jwt.sign(
         { sub: user._id.toString(), role: user.role, email: user.email },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: '30d' }
       );
 
