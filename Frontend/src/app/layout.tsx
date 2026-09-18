@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import './globals.css';
 import ConditionalChrome from '@/components/layout/ConditionalChrome';
 import { LanguageProvider } from '@/context/LanguageContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { Locale, LOCALE_METADATA, DEFAULT_LOCALE } from '@/locales';
 
 export const metadata: Metadata = {
@@ -55,7 +56,9 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-civic text-[#0b1f3a] font-ui selection:bg-[#0d7a6f]/20 selection:text-[#0b1f3a] relative antialiased">
         <LanguageProvider initialLocale={initialLocale}>
-          <ConditionalChrome>{children}</ConditionalChrome>
+          <AuthProvider>
+            <ConditionalChrome>{children}</ConditionalChrome>
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>

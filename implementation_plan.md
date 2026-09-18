@@ -1,112 +1,97 @@
-# Plan: Remove All Mock Data & Transition to 100% Real Data
+# Plan: Web Authentication System & User/NGO Navbar Menu
 
-Purge all hardcoded mock baselines, fake offline tokens, and static demo missions across the **Backend**, **Frontend**, and **Mobile App**, connecting every screen directly to live MongoDB database records.
+Implement a complete, production-ready **Authentication System for the Web Portal (`Frontend/`)**, matching the VOLUNOVA civic design system (`--navy: #0b1f3a`, `--teal: #0d7a6f`), with dedicated `/login` and `/register` pages and an interactive **User/NGO Profile Dropdown** in the Navbar.
 
 ---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Live Data Dependency**: With all mock baselines removed, initial stats (impact hours, volunteers count, missions count) will start at **0** until real users register and real missions are published.
+> **Persistent Client Session**: The web portal will store JWT tokens in `localStorage` (`volunova_token`), automatically restoring the session upon page refresh, attaching `Authorization: Bearer <token>` to all API requests, and synchronizing user state across pages via an `AuthContext`.
 >
-> If the database is currently empty:
-> - The Landing Page and Browse screens will show clean **Empty States** (*"Aucune mission active pour le moment — Soyez le premier à publier une initiative"*).
-> - The Mobile App will display real missions fetched from your MongoDB database rather than hardcoded cards.
-> - Authentication on Mobile and Web will require real registered accounts in MongoDB (no fake offline bypass).
-
----
-
-## Identified Mock Data Locations
-
-### 1. Backend (`Backend/`)
-- **[`Backend/src/routes/stats.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Backend/src/routes/stats.ts)**:
-  - `treesPlanted: 1420 + ...` &rarr; Hardcoded baseline.
-  - `totalImpactHours: 8650 + dbHours` &rarr; Hardcoded baseline of 8650 hours.
-  - `volunteersMobilized: Math.max(128, totalVolunteers)` &rarr; Hardcoded minimum of 128 volunteers.
-  - `activeMissionsCount: Math.max(4, totalMissions)` &rarr; Hardcoded minimum of 4 missions.
-  - `fillRatePercentage: 94` &rarr; Hardcoded 94%.
-- **[`Backend/src/routes/admin.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Backend/src/routes/admin.ts)**:
-  - `totalImpactHours: 8650, avgReliability: 96, cities: [...]` &rarr; Hardcoded fallback in telemetry.
-  - `totalSlotsNeeded: 24, totalSlotsFilled: 22` &rarr; Hardcoded fallback.
-- **[`Backend/src/config/pusher.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Backend/src/config/pusher.ts)**:
-  - Mock Pusher credential fallbacks.
-
-### 2. Frontend (`Frontend/`)
-- **[`Frontend/src/app/page.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/page.tsx)**:
-  - `useState<ImpactStats>({ treesPlanted: 1420, totalImpactHours: 8650, ... })` &rarr; Hardcoded initial values.
-- **[`Frontend/src/app/demo/page.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/demo/page.tsx)**:
-  - `totalHours: 8650`, hardcoded `2/3 (66%)` staffing.
-- **[`Frontend/src/lib/i18nData.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/lib/i18nData.ts)**:
-  - Contains overrides keyed to hardcoded names (`bouchaoui`, `blida`, `baraki`). Needs to default directly to the real user's database values (`mission.title`, `mission.description`, `mission.venueName`) without forcing static text.
-
-### 3. Mobile Application (`application/`)
-- **[`application/src/components/AuthScreen.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/application/src/components/AuthScreen.tsx)**:
-  - `mock_ahmed_id` and `mock_token_for_ahmed` fallback when offline or on error.
-- **[`application/App.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/application/App.tsx)**:
-  - `t('match.campaignTitle')`, `hasJoined ? '3/3' : '2/3'`, `hasJoined ? '100%' : '66%'` &rarr; Static strings instead of rendering real missions from `GET /missions`.
-  - `Authorization: Bearer ${authToken || 'mock_token_for_ahmed'}` &rarr; Mock token fallback.
+> **Role-Aware Navigation**:
+> - **Organizations / Admins**: Gain fast access to "Créer une Mission" and "Salle des Opérations".
+> - **Volunteers**: Can view their applied missions and verified impact hours.
+> - **Admins**: Direct link to the national `/admin` telemetry dashboard.
 
 ---
 
 ## Proposed Changes
 
-### Component 1: Backend (`Backend/`)
+### 1. State Management & API Client
 
-#### [MODIFY] [`Backend/src/routes/stats.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Backend/src/routes/stats.ts)
-- Compute 100% real database aggregates:
-  - `totalVolunteers`: `await User.countDocuments({ role: 'volunteer' })`
-  - `activeMissionsCount`: `await Mission.countDocuments({ status: { $in: ['active', 'in_progress'] } })`
-  - `totalImpactHours`: real sum of `User.impactHours`
-  - `treesPlanted`: real sum from environmental missions or `0`
-  - `fillRatePercentage`: `totalSlotsFilled / totalSlotsNeeded * 100` (or `0` if no slots)
+#### [MODIFY] [`Frontend/src/lib/api.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/lib/api.ts)
+- Add `api.signup({ name, email, password, role, city, skills })` to connect to `POST /api/auth/signup`.
+- Add `api.logout()` helper that removes stored tokens and clears user state.
 
-#### [MODIFY] [`Backend/src/routes/admin.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Backend/src/routes/admin.ts)
-- Remove `8650`, `96`, `['Algiers', 'Blida', 'Oran']`, `24`, `22` fallbacks.
-- Default to actual zeroes (`0`) when no data exists.
+#### [NEW] [`Frontend/src/context/AuthContext.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/context/AuthContext.tsx)
+Create a global React Context provider `AuthProvider`:
+- State: `user: User | null`, `token: string | null`, `loading: boolean`.
+- Functions: `login(email, password)`, `signup(payload)`, `logout()`.
+- Auto-restores the active user session on startup by calling `GET /api/auth/me`.
 
----
-
-### Component 2: Frontend (`Frontend/`)
-
-#### [MODIFY] [`Frontend/src/app/page.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/page.tsx)
-- Initialize stats to `0` with smooth loading skeletons.
-- Render real mission cards from `/api/missions`. If empty, show a clean empty state with "+ Publier la Première Mission".
-
-#### [MODIFY] [`Frontend/src/lib/i18nData.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/lib/i18nData.ts)
-- Ensure all missions dynamically display their real title, venue, and descriptions directly from MongoDB, using dictionary lookups only for categories and urgency badges.
+#### [MODIFY] [`Frontend/src/app/layout.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/layout.tsx)
+- Wrap application children inside `<AuthProvider>` alongside `<LanguageProvider>`.
 
 ---
 
-### Component 3: Mobile Application (`application/`)
+### 2. Navigation Bar Profile Menu
 
-#### [MODIFY] [`application/src/components/AuthScreen.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/application/src/components/AuthScreen.tsx)
-- Remove `mock_ahmed_id` and `mock_token_for_ahmed`.
-- When logging in or registering, send actual API requests. If authentication fails, display the real server error message in an Alert.
-
-#### [MODIFY] [`application/App.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/application/App.tsx)
-- Add real state: `missions: Mission[]`, `loadingMissions: boolean`.
-- Fetch real missions from `GET ${BACKEND_URL}/missions`.
-- Render real mission cards dynamically with live titles, venues, need roles, and real progress bars (`${mission.totalSlotsFilled}/${mission.totalSlotsNeeded}`).
-- Authenticated 1-Tap RSVP joins the specific real mission in MongoDB.
-- Display clean empty state if no missions are published yet.
+#### [MODIFY] [`Frontend/src/components/layout/Navbar.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/components/layout/Navbar.tsx)
+- When **Logged Out**:
+  - Display a clean, prominent **"Se Connecter" / "Connexion"** button linking to `/login`.
+- When **Logged In**:
+  - Display an interactive **Avatar Pill Menu**:
+    - User/Org initials circle with civic badge.
+    - User's first name / Organization name.
+    - Role pill badge: `🟢 Organisation`, `🔵 Bénévole`, or `🟣 Admin`.
+  - Dropdown menu upon click:
+    - User full name & email.
+    - Quick link to **"Créer une Mission"** (for organizations).
+    - Quick link to **"Tableau de Bord Admin"** (if admin).
+    - **"Déconnexion" (Logout)** button with door icon (`🚪`) that signs out and redirects to `/`.
 
 ---
 
-## Database Wipe (Optional Clean Slate)
+### 3. Dedicated Auth Pages
 
-If you want to completely clear out old seed data (Ahmed, Bouchaoui, etc.) so your database starts 100% empty:
-- We can provide a command or endpoint to wipe all collections (`User.deleteMany({})`, `Mission.deleteMany({})`, etc.) so you can register your own real accounts from scratch.
+#### [NEW] [`Frontend/src/app/login/page.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/login/page.tsx)
+Civic-themed login screen matching VOLUNOVA design tokens:
+- Clean card with subtle grid background (`bg-civic-grid`).
+- Email & password inputs with modern focus states.
+- **Fast 1-Tap Demo Logins**:
+  - `🏢 Démo Organisation` (`org@volunova.dz` / `password123`)
+  - `🤝 Démo Bénévole` (`ahmed@volunova.dz` / `password123`)
+- Real-time error alert banners.
+- Link: *"Pas encore de compte ? Créer un compte"*.
+
+#### [NEW] [`Frontend/src/app/register/page.tsx`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/app/register/page.tsx)
+Registration screen with role onboarding:
+- **Role Selector Tabs**:
+  - `🏛️ Association / Organisation` (hosts missions, manages ops room).
+  - `🤝 Bénévole Citoyen` (joins missions, earns impact hours).
+- Fields: Full Name / Org Name, Email, Password, City/Wilaya (Algiers, Blida, Oran, Constantine, etc.).
+- Direct integration with `POST /api/auth/signup`.
+- Link: *"Déjà un compte ? Se connecter"*.
+
+---
+
+### 4. Tri-Lingual Localization
+
+#### [MODIFY] [`Frontend/src/locales/fr.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/locales/fr.ts), [`en.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/locales/en.ts), [`ar.ts`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/Frontend/src/locales/ar.ts)
+- Add complete `auth` dictionary:
+  - Titles, labels, placeholders, role toggles, demo buttons, and error messages translated in French, English, and Arabic.
 
 ---
 
 ## Verification Plan
 
 ### Automated Verification
-1. `Backend`: Run `npx tsc --noEmit` & `npm run build` &rarr; Verify 0 errors.
-2. `Frontend`: Run `npx tsc --noEmit` & `npm run build` &rarr; Verify 0 errors.
-3. `application`: Run `npx tsc --noEmit` &rarr; Verify 0 errors.
+1. `Frontend/`: Run `npx tsc --noEmit` &rarr; Ensure 0 type errors.
+2. `Frontend/`: Run `npm run build` &rarr; Ensure `/login` and `/register` prerender cleanly into static/dynamic Next.js routes.
 
-### Functional Verification
-1. Inspect `http://localhost:5000/api/stats/impact-wall` &rarr; Verify numbers match the actual count of documents in MongoDB.
-2. Open the mobile app &rarr; Verify it loads real missions from MongoDB instead of static text.
-3. Register a new real volunteer on the mobile app &rarr; Verify the record is created in MongoDB Atlas.
+### Manual Verification
+1. Navigate to `http://localhost:3000/login` &rarr; Verify visual layout and fast demo login.
+2. Sign in as `org@volunova.dz` &rarr; Verify Navbar switches to Organization Avatar menu with role badge.
+3. Click "Déconnexion" &rarr; Verify session is cleared and Navbar reverts to "Se Connecter".
+4. Navigate to `http://localhost:3000/register` &rarr; Register a new volunteer or organization with real credentials &rarr; Verify successful signup and immediate redirect.

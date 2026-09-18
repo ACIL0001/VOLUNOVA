@@ -1,5 +1,25 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'volunteer' | 'organization' | 'admin';
+  avatar?: string;
+  city?: string;
+  skills?: string[];
+  impactHours?: number;
+  reliabilityScore?: number;
+  bio?: string;
+  organization?: {
+    _id: string;
+    name: string;
+    category: string;
+    logo?: string;
+    verificationStatus: 'pending' | 'verified' | 'rejected';
+  };
+}
+
 export interface MissionNeed {
   _id: string;
   missionId: string;
@@ -165,6 +185,28 @@ class ApiService {
       this.setToken(res.token);
     }
     return res;
+  }
+
+  async signup(data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'volunteer' | 'organization';
+    city?: string;
+    skills?: string[];
+  }): Promise<any> {
+    const res = await this.request<{ token: string; user: any }>('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res.token) {
+      this.setToken(res.token);
+    }
+    return res;
+  }
+
+  logout() {
+    this.clearToken();
   }
 
   async getMe(): Promise<any> {
