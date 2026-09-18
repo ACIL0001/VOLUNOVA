@@ -95,13 +95,13 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start Server & Connect Database
+// Start Server & Connect Database (Dual-stack IPv4 and IPv6)
 async function startServer() {
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, () => {
     console.log(`====================================================`);
-    console.log(`🚀 VOLUNOVA Backend running on: http://0.0.0.0:${PORT}`);
-    console.log(`📡 Health check: http://0.0.0.0:${PORT}/api/health`);
-    console.log(`⚡ 1-Click Demo Seed: POST http://0.0.0.0:${PORT}/api/seed`);
+    console.log(`🚀 VOLUNOVA Backend running on port: ${PORT} (Dual-Stack IPv4/IPv6)`);
+    console.log(`📡 Health check: http://127.0.0.1:${PORT}/api/health`);
+    console.log(`⚡ 1-Click Demo Seed: POST http://127.0.0.1:${PORT}/api/seed`);
     console.log(`====================================================`);
   });
 
