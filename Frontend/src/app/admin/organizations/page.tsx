@@ -115,12 +115,19 @@ export default function AdminOrganizationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eef2f6]">
-                {filteredOrgs.map((org) => {
-                  const isVerified = org.verificationStatus === 'verified';
-                  const isPending = org.verificationStatus === 'pending';
+                {filteredOrgs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-[#5b6b7c]">
+                      Aucune organisation enregistrée pour le moment.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrgs.map((org) => {
+                    const isVerified = org.verificationStatus === 'verified';
+                    const isPending = org.verificationStatus === 'pending';
 
-                  return (
-                    <tr key={org._id} className="hover:bg-[#f8fafc] transition-colors">
+                    return (
+                      <tr key={org._id} className="hover:bg-[#f8fafc] transition-colors">
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-lg bg-[#e6f4f2] text-[#0d7a6f] flex items-center justify-center font-bold">
@@ -191,7 +198,8 @@ export default function AdminOrganizationsPage() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
               </tbody>
             </table>
           </div>

@@ -271,6 +271,7 @@ export const ar = {
     signup_btn: 'إنشاء حساب جديد',
     demo_org_btn: '🏢 حساب تجريبي لجمعية',
     demo_vol_btn: '🤝 حساب تجريبي لمتطوع',
+    demo_admin_btn: '🛡️ حساب تجريبي للإدارة',
     no_account: 'ليس لديك حساب بعد؟',
     has_account: 'لديك حساب بالفعل؟',
     link_register: 'إنشاء حساب جديد',

@@ -36,11 +36,6 @@ export default function AdminHeader({
           </button>
         )}
 
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#e6f4f2] text-xs font-semibold text-[#0d7a6f]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#0d7a6f]" />
-          <span>API :5000</span>
-        </div>
-
         <div className="flex items-center gap-2 ps-3 border-s border-[#d8e0ea]">
           <div className="h-8 w-8 rounded-lg bg-[#0b1f3a] flex items-center justify-center font-semibold text-xs text-white">
             AD

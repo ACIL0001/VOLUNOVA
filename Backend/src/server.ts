@@ -95,6 +95,31 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+import bcrypt from 'bcryptjs';
+import { User } from './models';
+
+async function ensureDefaultAdmin() {
+  try {
+    const existing = await User.findOne({ email: 'admin@gmail.com' });
+    if (!existing) {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash('admin1234', salt);
+      await User.create({
+        name: 'Administrateur Système',
+        email: 'admin@gmail.com',
+        passwordHash,
+        role: 'admin',
+        city: 'Alger',
+        impactHours: 0,
+        reliabilityScore: 100,
+      });
+      console.log('✅ [Admin Init] Standard admin account created (admin@gmail.com)');
+    }
+  } catch (e) {
+    console.warn('[Admin Init Warning]', e);
+  }
+}
+
 // Start Server & Connect Database (Dual-stack IPv4 and IPv6)
 async function startServer() {
   app.listen(PORT, () => {
@@ -107,6 +132,7 @@ async function startServer() {
 
   try {
     await connectDB();
+    await ensureDefaultAdmin();
   } catch (err) {
     console.warn('[MongoDB Initialization]', err);
   }

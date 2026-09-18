@@ -53,10 +53,10 @@ export default function AdminOverviewPage() {
                 <Users className="h-4 w-4" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalVolunteers ?? 128}</div>
+            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalVolunteers ?? 0}</div>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-[#0d7a6f]">
               <TrendingUp className="h-3 w-3" />
-              <span>Fiabilité moyenne : {stats?.avgReliability ?? 95}%</span>
+              <span>Fiabilité moyenne : {stats?.avgReliability ?? 0}%</span>
             </div>
           </div>
 
@@ -68,10 +68,10 @@ export default function AdminOverviewPage() {
               </div>
             </div>
             <div className="text-3xl font-bold text-[#0b1f3a]">
-              {stats?.totalImpactHours?.toLocaleString() ?? '8,650'} h
+              {stats?.totalImpactHours ? stats.totalImpactHours.toLocaleString() : 0} h
             </div>
             <div className="mt-2 text-xs text-[#5b6b7c]">
-              Sur {stats?.wilayasActiveCount ?? 3} wilayas actives
+              Sur {stats?.wilayasActiveCount ?? 0} wilayas actives
             </div>
           </div>
 
@@ -82,9 +82,9 @@ export default function AdminOverviewPage() {
                 <Compass className="h-4 w-4" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalMissions ?? 4}</div>
+            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalMissions ?? 0}</div>
             <div className="mt-2 text-xs text-[#0d7a6f]">
-              {stats?.fulfillmentRate ?? 94}% taux de comblement
+              {stats?.fulfillmentRate ?? 0}% taux de comblement
             </div>
           </div>
 
@@ -95,7 +95,7 @@ export default function AdminOverviewPage() {
                 <Building2 className="h-4 w-4" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalOrganizations ?? 2}</div>
+            <div className="text-3xl font-bold text-[#0b1f3a]">{stats?.totalOrganizations ?? 0}</div>
             <div className="mt-2 text-xs text-[#8a5a10]">
               {stats?.pendingOrganizations ?? 0} en attente d&apos;agrément
             </div>
@@ -134,26 +134,9 @@ export default function AdminOverviewPage() {
                   );
                 })
               ) : (
-                <>
-                  {[
-                    { label: 'Environnement & Reboisement', pct: 50 },
-                    { label: 'Santé & Caravanes Médicales', pct: 25 },
-                    { label: 'Action Humanitaire & Colis', pct: 25 },
-                  ].map((row) => (
-                    <div key={row.label} className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-[#0b1f3a]">{row.label}</span>
-                        <span className="text-[#5b6b7c]">{row.pct}%</span>
-                      </div>
-                      <div className="h-1.5 bg-[#eef2f6] rounded-full overflow-hidden">
-                        <div
-                          className="h-full progress-bar-civic rounded-full"
-                          style={{ width: `${row.pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </>
+                <div className="py-8 text-center text-xs text-[#5b6b7c]">
+                  Aucune mission enregistrée pour le moment.
+                </div>
               )}
             </div>
           </div>

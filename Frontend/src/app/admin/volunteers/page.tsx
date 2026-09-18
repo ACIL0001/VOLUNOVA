@@ -74,8 +74,15 @@ export default function AdminVolunteersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eef2f6]">
-                {filtered.map((v) => (
-                  <tr key={v._id} className="hover:bg-[#f8fafc] transition-colors">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-[#5b6b7c]">
+                      Aucun bénévole enregistré pour le moment.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((v) => (
+                    <tr key={v._id} className="hover:bg-[#f8fafc] transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-lg bg-[#0b1f3a] flex items-center justify-center font-semibold text-white text-sm">
@@ -127,7 +134,8 @@ export default function AdminVolunteersPage() {
                       {new Date(v.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
-                ))}
+                ))
+              )}
               </tbody>
             </table>
           </div>

@@ -271,6 +271,7 @@ export const fr = {
     signup_btn: 'Créer un Compte',
     demo_org_btn: '🏢 Démo Organisation',
     demo_vol_btn: '🤝 Démo Bénévole',
+    demo_admin_btn: '🛡️ Démo Admin',
     no_account: 'Pas encore de compte ?',
     has_account: 'Déjà un compte ?',
     link_register: 'Créer un compte',
