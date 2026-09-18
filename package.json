@@ -1,0 +1,10 @@
+{
+  "name": "volunova-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VOLUNOVA Monorepo Root",
+  "scripts": {
+    "build": "cd Backend && npm install && npm run build",
+    "start": "cd Backend && npm start"
+  }
+}
