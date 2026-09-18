@@ -22,11 +22,11 @@ import { getLocalizedMission, getLocalizedCategory } from '@/lib/i18nData';
 export default function LandingPage() {
   const { t, isRTL, locale } = useTranslation();
   const [stats, setStats] = useState<ImpactStats>({
-    treesPlanted: 1420,
-    totalImpactHours: 8650,
-    volunteersMobilized: 128,
-    activeMissionsCount: 4,
-    fillRatePercentage: 94,
+    treesPlanted: 0,
+    totalImpactHours: 0,
+    volunteersMobilized: 0,
+    activeMissionsCount: 0,
+    fillRatePercentage: 0,
   });
   const [recentMissions, setRecentMissions] = useState<Mission[]>([]);
 
@@ -43,7 +43,7 @@ export default function LandingPage() {
         if (statsData) setStats(statsData);
         if (missionsData) setRecentMissions(missionsData.slice(0, 3));
       } catch {
-        // keep defaults
+        // keep real defaults
       }
     }
     loadData();
@@ -172,16 +172,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Recent missions */}
-      {recentMissions.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="flex items-end justify-between gap-4 mb-6">
-            <div>
-              <h2 className={`text-2xl font-semibold text-[#0b1f3a] ${locale === 'ar' ? 'font-cairo' : 'font-display'}`}>
-                {t('missions.recent_title')}
-              </h2>
-              <p className="text-sm text-[#5b6b7c] mt-1">{t('missions.recent_subtitle')}</p>
-            </div>
+      {/* Recent missions or Empty State */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <div>
+            <h2 className={`text-2xl font-semibold text-[#0b1f3a] ${locale === 'ar' ? 'font-cairo' : 'font-display'}`}>
+              {t('missions.recent_title')}
+            </h2>
+            <p className="text-sm text-[#5b6b7c] mt-1">{t('missions.recent_subtitle')}</p>
+          </div>
+          {recentMissions.length > 0 && (
             <Link
               href="/missions/browse"
               className="flex items-center gap-1 text-sm font-semibold text-[#0d7a6f] hover:text-[#0a635a]"
@@ -189,8 +189,29 @@ export default function LandingPage() {
               {t('missions.view_all')}
               <ChevronIcon className="h-4 w-4" />
             </Link>
-          </div>
+          )}
+        </div>
 
+        {recentMissions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#d8e0ea] bg-[#f8fafc] p-10 text-center">
+            <Compass className="h-10 w-10 text-[#5b6b7c] mx-auto mb-3 opacity-60" />
+            <h3 className="text-base font-semibold text-[#0b1f3a]">
+              {locale === 'ar' ? 'لا توجد مبادرات مسجلة بعد' : locale === 'fr' ? 'Aucune mission enregistrée pour le moment' : 'No missions recorded yet'}
+            </h3>
+            <p className="text-sm text-[#5b6b7c] mt-1 max-w-md mx-auto">
+              {locale === 'ar' ? 'كن أول من يطلق مبادرة تطوعية ميدانية ويحشد المتطوعين عبر منصة تكاتف الذكية.' : locale === 'fr' ? 'Soyez le premier à lancer une initiative citoyenne et mobiliser les volontaires.' : 'Be the first to launch a civic initiative and mobilize volunteers on Volunova.'}
+            </p>
+            <div className="mt-5">
+              <Link
+                href="/missions/create"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0d7a6f] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0a635a] shadow-md transition-all"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>{locale === 'ar' ? '+ إنشاء أول مهمة' : locale === 'fr' ? '+ Créer la première mission' : '+ Create First Mission'}</span>
+              </Link>
+            </div>
+          </div>
+        ) : (
           <div className="grid gap-5 md:grid-cols-3">
             {recentMissions.map((mission) => {
               const locMission = getLocalizedMission(mission, locale);
@@ -241,8 +262,8 @@ export default function LandingPage() {
               );
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

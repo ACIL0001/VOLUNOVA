@@ -56,36 +56,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(json.data.user));
         onAuthSuccess(json.data.user, json.data.token);
       } else {
-        // Mock offline fallback
-        const fallbackUser = {
-          id: 'mock_ahmed_id',
-          name: 'أحمد بن علي',
-          email: 'ahmed@volunova.dz',
-          role: 'volunteer',
-          skills: ['Graphic Design', 'Drone Videography', 'Photography'],
-          impactHours: 34,
-          reliabilityScore: 98,
-          city: 'Algiers',
-        };
-        await AsyncStorage.setItem('volunova_auth_token', 'mock_token_for_ahmed');
-        await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(fallbackUser));
-        onAuthSuccess(fallbackUser, 'mock_token_for_ahmed');
+        Alert.alert('Erreur', json.error?.message || 'Impossible de se connecter avec ce compte.');
       }
     } catch (e) {
-      // Local fallback
-      const fallbackUser = {
-        id: 'mock_ahmed_id',
-        name: 'أحمد بن علي',
-        email: 'ahmed@volunova.dz',
-        role: 'volunteer',
-        skills: ['Graphic Design', 'Drone Videography', 'Photography'],
-        impactHours: 34,
-        reliabilityScore: 98,
-        city: 'Algiers',
-      };
-      await AsyncStorage.setItem('volunova_auth_token', 'mock_token_for_ahmed');
-      await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(fallbackUser));
-      onAuthSuccess(fallbackUser, 'mock_token_for_ahmed');
+      Alert.alert('Erreur de connexion', 'Impossible de joindre le serveur API. Vérifiez que le backend est allumé.');
     } finally {
       setLoading(false);
     }

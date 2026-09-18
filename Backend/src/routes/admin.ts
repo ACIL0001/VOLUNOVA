@@ -54,8 +54,8 @@ router.get('/stats', async (req: Request, res: Response) => {
       AuditLog.find().sort({ timestamp: -1 }).limit(10).lean(),
     ]);
 
-    const volStats = volunteersAgg[0] || { totalImpactHours: 8650, avgReliability: 96, cities: ['Algiers', 'Blida', 'Oran'] };
-    const missionStats = missionsAgg[0] || { totalSlotsNeeded: 24, totalSlotsFilled: 22 };
+    const volStats = volunteersAgg[0] || { totalImpactHours: 0, avgReliability: 0, cities: [] };
+    const missionStats = missionsAgg[0] || { totalSlotsNeeded: 0, totalSlotsFilled: 0 };
 
     return res.json({
       ok: true,
@@ -65,14 +65,14 @@ router.get('/stats', async (req: Request, res: Response) => {
         pendingOrganizations,
         totalMissions,
         activeMissions,
-        totalImpactHours: volStats.totalImpactHours,
-        avgReliability: Math.round(volStats.avgReliability || 95),
-        wilayasActiveCount: volStats.cities?.length || 3,
-        totalSlotsNeeded: missionStats.totalSlotsNeeded,
-        totalSlotsFilled: missionStats.totalSlotsFilled,
+        totalImpactHours: volStats.totalImpactHours || 0,
+        avgReliability: Math.round(volStats.avgReliability || 0),
+        wilayasActiveCount: volStats.cities?.length || 0,
+        totalSlotsNeeded: missionStats.totalSlotsNeeded || 0,
+        totalSlotsFilled: missionStats.totalSlotsFilled || 0,
         fulfillmentRate: missionStats.totalSlotsNeeded > 0
           ? Math.round((missionStats.totalSlotsFilled / missionStats.totalSlotsNeeded) * 100)
-          : 94,
+          : 0,
         categories: categoriesAgg.map((c) => ({ category: c._id || 'General', count: c.count })),
         recentAuditLogs,
       },

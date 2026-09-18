@@ -30,6 +30,8 @@ function VolunovaMobileApp() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [missions, setMissions] = useState<any[]>([]);
+  const [loadingMissions, setLoadingMissions] = useState(true);
 
   // Load Persisted Session from AsyncStorage on Startup
   useEffect(() => {
@@ -52,6 +54,21 @@ function VolunovaMobileApp() {
     loadSession();
   }, []);
 
+  const fetchMissions = async () => {
+    setLoadingMissions(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/missions`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.data)) {
+        setMissions(data.data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch missions from backend:', e);
+    } finally {
+      setLoadingMissions(false);
+    }
+  };
+
   useEffect(() => {
     fetch(`${BACKEND_URL}/health`)
       .then((res) => res.json())
@@ -59,6 +76,8 @@ function VolunovaMobileApp() {
         if (data.status === 'online') setServerOnline(true);
       })
       .catch(() => setServerOnline(false));
+
+    fetchMissions();
   }, []);
 
   const handleLogout = async () => {
@@ -69,40 +88,46 @@ function VolunovaMobileApp() {
     setHasJoined(false);
   };
 
-  const handleJoinMission = async () => {
+  const handleJoinMission = async (missionId?: string, needId?: string, hours: number = 4) => {
     if (hasJoined) return;
+    if (!authToken) {
+      Alert.alert('Non connecté', 'Veuillez vous connecter pour postuler.');
+      return;
+    }
     setJoining(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/missions`);
-      const data = await res.json();
-      if (data.ok && data.data && data.data.length > 0) {
-        const mission = data.data[0];
-        const designerNeed = mission.needs?.find((n: any) =>
-          n.roleName.includes('مصمم') || n.skillTag.includes('Design')
-        ) || mission.needs?.[0];
+      const targetMissionId = missionId || missions[0]?._id;
+      const targetNeedId = needId || missions[0]?.needs?.[0]?._id;
 
-        if (designerNeed) {
-          await fetch(`${BACKEND_URL}/missions/${mission._id}/join`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken || 'mock_token_for_ahmed'}`,
-            },
-            body: JSON.stringify({ needId: designerNeed._id }),
-          });
-        }
+      if (!targetMissionId || !targetNeedId) {
+        Alert.alert('Information', 'Aucune mission disponible à rejoindre pour le moment.');
+        setJoining(false);
+        return;
+      }
+
+      const res = await fetch(`${BACKEND_URL}/missions/${targetMissionId}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ needId: targetNeedId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setHasJoined(true);
+        setImpactHours((prev) => prev + hours);
+        fetchMissions();
+        Alert.alert(t('alerts.congrats'), t('alerts.joinedMessage'));
+      } else {
+        Alert.alert('Information', data.error?.message || 'Ce créneau est déjà pourvu.');
       }
     } catch (e) {
-      // Fallback
-    }
-
-    setTimeout(() => {
-      setHasJoined(true);
-      setImpactHours((prev) => prev + 4);
+      Alert.alert('Erreur', 'Impossible de contacter le serveur backend.');
+    } finally {
       setJoining(false);
-      Alert.alert(t('alerts.congrats'), t('alerts.joinedMessage'));
-    }, 500);
+    }
   };
 
   if (authLoading) {
@@ -212,61 +237,83 @@ function VolunovaMobileApp() {
             </View>
 
             {/* Matched Mission Card */}
-            <View style={styles.card}>
-              <View style={[styles.cardTopRow, { flexDirection }]}>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText}>{t('match.category')}</Text>
-                </View>
-                <View style={styles.matchScoreBadge}>
-                  <Text style={styles.matchScoreText}>{t('match.score')}</Text>
-                </View>
-              </View>
+            {missions.length > 0 ? (
+              missions.slice(0, 1).map((mission) => {
+                const primaryNeed = mission.needs?.[0];
+                const pct = mission.totalSlotsNeeded > 0
+                  ? Math.round((mission.totalSlotsFilled / mission.totalSlotsNeeded) * 100)
+                  : 0;
 
-              <Text style={[styles.cardTitle, { textAlign }]}>{t('match.campaignTitle')}</Text>
-              <Text style={[styles.cardOrg, { textAlign }]}>{t('match.campaignOrg')}</Text>
+                return (
+                  <View key={mission._id} style={styles.card}>
+                    <View style={[styles.cardTopRow, { flexDirection }]}>
+                      <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>{mission.category}</Text>
+                      </View>
+                      <View style={styles.matchScoreBadge}>
+                        <Text style={styles.matchScoreText}>🌟 98% Match</Text>
+                      </View>
+                    </View>
 
-              <View style={styles.detailBox}>
-                <Text style={[styles.detailItem, { textAlign }]}>
-                  {t('match.roleLabel')}: <Text style={styles.boldSky}>{t('match.roleName')}</Text>
+                    <Text style={[styles.cardTitle, { textAlign }]}>{mission.title}</Text>
+                    <Text style={[styles.cardOrg, { textAlign }]}>{mission.orgId?.name || 'Association Citoyenne'}</Text>
+
+                    <View style={styles.detailBox}>
+                      {primaryNeed && (
+                        <Text style={[styles.detailItem, { textAlign }]}>
+                          {t('match.roleLabel')}: <Text style={styles.boldSky}>{primaryNeed.roleName}</Text>
+                        </Text>
+                      )}
+                      <Text style={[styles.detailItem, { textAlign }]}>📍 {mission.venueName}</Text>
+                      <Text style={[styles.detailItem, { textAlign }]}>⏱️ {mission.estimatedHoursPerVolunteer || 4} {t('header.hoursSuffix')}</Text>
+                    </View>
+
+                    {/* Strict Reserved Green Progress Bar */}
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressLabels, { flexDirection }]}>
+                        <Text style={styles.progressLabelText}>
+                          {t('match.progressLabel')}: {mission.totalSlotsFilled}/{mission.totalSlotsNeeded} {t('match.progressStaffed')}
+                        </Text>
+                        <Text style={styles.progressPctText}>
+                          {pct}%
+                        </Text>
+                      </View>
+                      <View style={styles.progressBarTrack}>
+                        <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(5, pct))}%` }]} />
+                      </View>
+                    </View>
+
+                    {/* 1-Tap Join Button / Reserved Green Accept Box */}
+                    {hasJoined ? (
+                      <View style={styles.joinedSuccessBox}>
+                        <Text style={styles.joinedSuccessText}>{t('match.joinedSuccess')}</Text>
+                        <Text style={styles.joinedSubText}>{t('match.joinedSub')}</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.joinButton}
+                        onPress={() => handleJoinMission(mission._id, primaryNeed?._id, mission.estimatedHoursPerVolunteer || 4)}
+                        disabled={joining}
+                      >
+                        <Text style={styles.joinButtonText}>
+                          {joining ? t('match.joining') : t('match.joinBtn')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })
+            ) : (
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: 28 }]}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>🌱</Text>
+                <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
+                  {locale === 'ar' ? 'لا توجد مبادرات مطابقة حالياً' : locale === 'fr' ? 'Aucune mission pour le moment' : 'No missions available yet'}
                 </Text>
-                <Text style={[styles.detailItem, { textAlign }]}>{t('match.venue')}</Text>
-                <Text style={[styles.detailItem, { textAlign }]}>{t('match.date')}</Text>
-                <Text style={[styles.detailItem, { textAlign }]}>{t('match.hoursEarned')}</Text>
+                <Text style={[styles.cardDesc, { textAlign: 'center', marginTop: 4 }]}>
+                  {locale === 'ar' ? 'قم بنشر مهمة جديدة من المنصة أو انتظر تسجيل مبادرات جديدة.' : locale === 'fr' ? 'Publiez une initiative depuis le portail web pour la voir apparaître ici.' : 'Publish a mission from the web portal to see it appear here live.'}
+                </Text>
               </View>
-
-              {/* Strict Reserved Green Progress Bar */}
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressLabels, { flexDirection }]}>
-                  <Text style={styles.progressLabelText}>
-                    {t('match.progressLabel')}: {hasJoined ? '3/3' : '2/3'} {t('match.progressStaffed')}
-                  </Text>
-                  <Text style={styles.progressPctText}>
-                    {hasJoined ? '100%' : '66%'}
-                  </Text>
-                </View>
-                <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: hasJoined ? '100%' : '66%' }]} />
-                </View>
-              </View>
-
-              {/* 1-Tap Join Button / Reserved Green Accept Box */}
-              {hasJoined ? (
-                <View style={styles.joinedSuccessBox}>
-                  <Text style={styles.joinedSuccessText}>{t('match.joinedSuccess')}</Text>
-                  <Text style={styles.joinedSubText}>{t('match.joinedSub')}</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.joinButton}
-                  onPress={handleJoinMission}
-                  disabled={joining}
-                >
-                  <Text style={styles.joinButtonText}>
-                    {joining ? t('match.joining') : t('match.joinBtn')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
 
             {/* Volunteer Skills */}
             <View style={styles.card}>
@@ -300,16 +347,45 @@ function VolunovaMobileApp() {
 
         {activeTab === 'browse' && (
           <View>
-            <View style={styles.card}>
-              <Text style={[styles.cardTitle, { textAlign }]}>{t('browse.mission1Title')}</Text>
-              <Text style={[styles.detailItem, { textAlign }]}>{t('browse.mission1Detail')}</Text>
-              <Text style={[styles.cardDesc, { textAlign }]}>{t('browse.mission1Desc')}</Text>
-            </View>
-            <View style={styles.card}>
-              <Text style={[styles.cardTitle, { textAlign }]}>{t('browse.mission2Title')}</Text>
-              <Text style={[styles.detailItem, { textAlign }]}>{t('browse.mission2Detail')}</Text>
-              <Text style={[styles.cardDesc, { textAlign }]}>{t('browse.mission2Desc')}</Text>
-            </View>
+            {missions.length > 0 ? (
+              missions.map((m) => {
+                const pct = m.totalSlotsNeeded > 0
+                  ? Math.round((m.totalSlotsFilled / m.totalSlotsNeeded) * 100)
+                  : 0;
+                return (
+                  <View key={m._id} style={styles.card}>
+                    <View style={[styles.cardTopRow, { flexDirection }]}>
+                      <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>{m.category}</Text>
+                      </View>
+                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>📍 {m.venueName}</Text>
+                    </View>
+                    <Text style={[styles.cardTitle, { textAlign }]}>{m.title}</Text>
+                    <Text style={[styles.cardDesc, { textAlign }]} numberOfLines={3}>{m.description}</Text>
+
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressLabels, { flexDirection }]}>
+                        <Text style={styles.progressLabelText}>{m.totalSlotsFilled}/{m.totalSlotsNeeded} {t('match.progressStaffed')}</Text>
+                        <Text style={styles.progressPctText}>{pct}%</Text>
+                      </View>
+                      <View style={styles.progressBarTrack}>
+                        <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(5, pct))}%` }]} />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: 28 }]}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>📋</Text>
+                <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
+                  {locale === 'ar' ? 'سجل المبادرات فارغ' : locale === 'fr' ? 'Aucune mission publiée' : 'No published missions'}
+                </Text>
+                <Text style={[styles.cardDesc, { textAlign: 'center', marginTop: 4 }]}>
+                  {locale === 'ar' ? 'سوف تظهر المبادرات هنا بمجرد إنشائها عبر لوحة التحكم.' : locale === 'fr' ? 'Les initiatives créées apparaîtront ici en temps réel.' : 'Created initiatives will appear here in real time.'}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
