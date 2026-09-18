@@ -141,3 +141,17 @@ npm start
 - **Interactive Dual-Screen Demo**: [http://localhost:3000/demo](http://localhost:3000/demo)
 - **Admin Dashboard**: [http://localhost:3001](http://localhost:3001)
 - **Mobile App**: Scan Expo QR code with Expo Go on Android/iOS, or press `a` for Android emulator / `w` for web preview.
+
+---
+
+## 🐙 7. GitHub Repository Deployment
+
+- **Repository**: [https://github.com/ACIL0001/VOLUNOVA](https://github.com/ACIL0001/VOLUNOVA)
+- **Branch**: `main`
+- **Security Protections Verified**:
+  - Live secrets (`backend/.env`, API keys, JWT secrets) strictly omitted via `.gitignore`.
+  - Placeholder [`backend/.env.example`](file:///c:/Users/MY%20PC/Desktop/VOLUNOVA/backend/.env.example) published for collaborators.
+  - Heavy build folders (`node_modules/`, `.next/`, `.expo/`) omitted.
+  - Nested `application/.git` eliminated so the mobile project is tracked directly in the monorepo.
+- **Initial Commit Hash**: `3905fdc` (*feat: initial release of VOLUNOVA 4-tier volunteer operating system*).
+
