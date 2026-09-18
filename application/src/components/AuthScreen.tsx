@@ -13,8 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from '../context/LanguageContext';
 import MobileLanguagePicker from './MobileLanguagePicker';
 import SkillPickerModal, { AVAILABLE_SKILLS } from './SkillPickerModal';
-
-const BACKEND_URL = 'http://localhost:5000/api';
+import { getBackendUrl } from '../config/apiConfig';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: any, token: string) => void;
@@ -24,6 +23,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const { t, textAlign, flexDirection, locale } = useTranslation();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const [loading, setLoading] = useState(false);
+  const backendUrl = getBackendUrl();
 
   // Form Fields
   const [name, setName] = useState('');
@@ -42,12 +42,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const handleFastDemoLogin = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/auth/login`, {
+      const res = await fetch(`${backendUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'ahmed@volunova.dz',
-          password: 'password123',
+          email: 'admin@gmail.com',
+          password: 'admin1234',
         }),
       });
       const json = await res.json();
@@ -59,7 +59,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         Alert.alert('Erreur', json.error?.message || 'Impossible de se connecter avec ce compte.');
       }
     } catch (e) {
-      Alert.alert('Erreur de connexion', 'Impossible de joindre le serveur API. Vérifiez que le backend est allumé.');
+      Alert.alert(
+        'Erreur de connexion',
+        `Impossible de joindre le serveur API (${backendUrl}). Vérifiez que votre téléphone et votre ordinateur sont sur le même réseau Wi-Fi.`
+      );
     } finally {
       setLoading(false);
     }
@@ -77,7 +80,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
 
     setLoading(true);
-    const endpoint = tab === 'signup' ? `${BACKEND_URL}/auth/signup` : `${BACKEND_URL}/auth/login`;
+    const endpoint = tab === 'signup' ? `${backendUrl}/auth/signup` : `${backendUrl}/auth/login`;
     const payload =
       tab === 'signup'
         ? { name, email, password, role: 'volunteer', skills, city }
@@ -99,7 +102,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         Alert.alert('Erreur', json.error?.message || 'Identifiants invalides.');
       }
     } catch (err: any) {
-      Alert.alert('Connexion', 'Serveur hors ligne ou problème réseau. Utilisez la démo rapide.');
+      Alert.alert(
+        'Erreur de connexion',
+        `Impossible de contacter le serveur (${backendUrl}). Vérifiez que votre appareil est connecté au même réseau Wi-Fi que le serveur.`
+      );
     } finally {
       setLoading(false);
     }

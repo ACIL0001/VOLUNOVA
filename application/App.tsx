@@ -15,8 +15,9 @@ import { LanguageProvider, useTranslation } from './src/context/LanguageContext'
 import MobileLanguagePicker from './src/components/MobileLanguagePicker';
 import AuthScreen from './src/components/AuthScreen';
 import { AVAILABLE_SKILLS } from './src/components/SkillPickerModal';
+import { getBackendUrl } from './src/config/apiConfig';
 
-const BACKEND_URL = 'http://localhost:5000/api';
+const BACKEND_URL = getBackendUrl();
 
 function VolunovaMobileApp() {
   const { t, isRTL, textAlign, flexDirection, locale } = useTranslation();
