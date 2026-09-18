@@ -240,25 +240,41 @@ export default function MissionOpsRoom() {
               return (
                 <div key={vol._id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={vol.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                      alt={vol.name}
-                      className="h-11 w-11 rounded-full object-cover border border-blue-500/30 flex-shrink-0"
-                    />
+                    {vol.avatar ? (
+                      <img
+                        src={vol.avatar}
+                        alt={vol.name}
+                        className="h-11 w-11 rounded-full object-cover border border-blue-500/30 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold text-sm flex items-center justify-center border border-blue-400/30 flex-shrink-0 shadow-inner">
+                        {vol.name ? vol.name.trim().charAt(0).toUpperCase() : 'V'}
+                      </div>
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-white">{vol.name}</span>
-                        <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-black text-sky-300 border border-blue-500/30">
-                          {vol.matchScore}% {t('ops.match_score')}
-                        </span>
+                        {vol.impactHours > 0 && vol.matchScore ? (
+                          <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-black text-sky-300 border border-blue-500/30">
+                            {vol.matchScore}% {t('ops.match_score')}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                            ✨ {t('ops.new_profile')}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
                         📍 {vol.city} | {t('ops.suggested_role')}: <span className="text-slate-300 font-semibold">{vol.matchedRole}</span>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-1">
-                        <span>🎖️ {t('ops.reliability')}: {vol.reliabilityScore}%</span>
+                        {vol.reliabilityScore > 0 ? (
+                          <span>🎖️ {t('ops.reliability')}: {vol.reliabilityScore}%</span>
+                        ) : (
+                          <span className="text-slate-400">🎖️ {t('ops.new_volunteer')}</span>
+                        )}
                         <span>•</span>
-                        <span>⏱️ {vol.impactHours} {t('ops.prev_hours')}</span>
+                        <span>⏱️ {vol.impactHours || 0} {t('ops.prev_hours')}</span>
                       </div>
                     </div>
                   </div>

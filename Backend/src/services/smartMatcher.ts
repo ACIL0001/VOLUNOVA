@@ -38,9 +38,9 @@ export function calculateMatchScore(candidate: MatchCandidate, target: MatchTarg
   const proximityScore = isSameCity ? 30 : 12;
 
   // 3. Reliability & Impact Score (0 - 20 pts)
-  const rel = typeof candidate.reliabilityScore === 'number' ? candidate.reliabilityScore : 90;
+  const rel = typeof candidate.reliabilityScore === 'number' && candidate.reliabilityScore > 0 ? candidate.reliabilityScore : 0;
   const reliabilityScore = Math.min(20, Math.max(0, Math.round((rel / 100) * 20)));
 
   const total = skillScore + proximityScore + reliabilityScore;
-  return Math.min(99, Math.max(40, total)); // Bounds between 40% and 99%
+  return Math.min(99, Math.max(0, total));
 }

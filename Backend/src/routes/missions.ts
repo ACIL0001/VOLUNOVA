@@ -84,13 +84,13 @@ router.get('/:id', optionalToken, async (req: AuthenticatedRequest, res: Respons
       .lean();
 
     const matchedVolunteers = volunteers.map((vol) => {
-      let maxScore = 50;
+      let maxScore = 0;
       let matchedRole = '';
 
       for (const need of needs) {
         const score = calculateMatchScore(
-          { skills: vol.skills || [], city: vol.city || 'Algiers', reliabilityScore: vol.reliabilityScore || 90 },
-          { skillTag: need.skillTag, targetCity: mission.venueName.includes('Algiers') ? 'Algiers' : 'Algiers' }
+          { skills: vol.skills || [], city: vol.city || 'Algiers', reliabilityScore: vol.reliabilityScore || 0 },
+          { skillTag: need.skillTag, targetCity: mission.venueName?.includes('Algiers') ? 'Algiers' : (mission.wilaya || 'Algiers') }
         );
         if (score > maxScore) {
           maxScore = score;
@@ -254,10 +254,10 @@ router.post(
         const volunteer = await User.findById(volunteerId);
         const matchScore = volunteer
           ? calculateMatchScore(
-              { skills: volunteer.skills || [], city: volunteer.city || 'Algiers', reliabilityScore: volunteer.reliabilityScore || 90 },
+              { skills: volunteer.skills || [], city: volunteer.city || 'Algiers', reliabilityScore: volunteer.reliabilityScore || 0 },
               { skillTag: updatedNeed.skillTag, targetCity: 'Algiers' }
             )
-          : 95;
+          : 0;
 
         const application = await Application.create({
           missionId,

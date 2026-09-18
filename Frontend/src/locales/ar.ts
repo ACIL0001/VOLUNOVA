@@ -125,6 +125,8 @@ export const ar = {
     match_score: 'تطابق 🌟',
     suggested_role: 'دور مقترح',
     reliability: 'الالتزام',
+    new_volunteer: 'متطوع جديد',
+    new_profile: 'ملف جديد',
     prev_hours: 'ساعة سابقة',
     invite_btn: 'دعوة فورية',
     invited_btn: 'تمت الدعوة',

@@ -118,17 +118,21 @@ export default function AdminVolunteersPage() {
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-[#0d7a6f] text-xs">
-                          {v.reliabilityScore || 95}%
-                        </span>
-                        <div className="h-1.5 w-16 bg-[#eef2f6] rounded-full overflow-hidden">
-                          <div
-                            className="h-full progress-bar-civic rounded-full"
-                            style={{ width: `${v.reliabilityScore || 95}%` }}
-                          />
+                      {v.reliabilityScore > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-[#0d7a6f] text-xs">
+                            {v.reliabilityScore}%
+                          </span>
+                          <div className="h-1.5 w-16 bg-[#eef2f6] rounded-full overflow-hidden">
+                            <div
+                              className="h-full progress-bar-civic rounded-full"
+                              style={{ width: `${v.reliabilityScore}%` }}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-[#8fa0b3] text-xs font-medium">Nouveau</span>
+                      )}
                     </td>
                     <td className="py-4 px-4 text-[#5b6b7c] text-[11px]">
                       {new Date(v.createdAt).toLocaleDateString()}

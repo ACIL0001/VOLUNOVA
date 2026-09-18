@@ -17,7 +17,7 @@ const UserSchema = new Schema({
     enum: ['volunteer', 'organization', 'admin'],
     default: 'volunteer',
   },
-  avatar: { type: String, default: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
+  avatar: { type: String, default: '' },
   phone: { type: String, select: false }, // Revealed only upon accepted RSVP
   skills: [{ type: String, trim: true, maxlength: 50, index: true }],
   city: { type: String, default: 'Algiers', trim: true },
@@ -26,7 +26,7 @@ const UserSchema = new Schema({
     coordinates: { type: [Number], default: [3.0588, 36.7538] }, // [lng, lat]
   },
   impactHours: { type: Number, default: 0, min: 0 },
-  reliabilityScore: { type: Number, default: 95, min: 0, max: 100 },
+  reliabilityScore: { type: Number, default: 0, min: 0, max: 100 },
   bio: { type: String, maxlength: 500, trim: true },
   pushTokens: [{ type: String, select: false }],
   failedLoginAttempts: { type: Number, default: 0, select: false },
@@ -40,7 +40,7 @@ const OrganizationSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   name: { type: String, required: true, trim: true, maxlength: 150 },
   category: { type: String, default: 'Community Impact', trim: true },
-  logo: { type: String, default: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=150&auto=format&fit=crop&q=80' },
+  logo: { type: String, default: '' },
   verificationStatus: {
     type: String,
     enum: ['pending', 'verified', 'rejected'],

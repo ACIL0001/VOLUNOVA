@@ -24,7 +24,7 @@ function VolunovaMobileApp() {
   const [activeTab, setActiveTab] = useState<'matched' | 'browse' | 'passport'>('matched');
   const [hasJoined, setHasJoined] = useState(false);
   const [joining, setJoining] = useState(false);
-  const [impactHours, setImpactHours] = useState(34);
+  const [impactHours, setImpactHours] = useState(0);
   const [serverOnline, setServerOnline] = useState(false);
 
   // Authentication State

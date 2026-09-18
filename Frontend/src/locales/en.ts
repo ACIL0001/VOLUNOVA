@@ -125,6 +125,8 @@ export const en = {
     match_score: 'Match 🌟',
     suggested_role: 'Suggested Role',
     reliability: 'Reliability',
+    new_volunteer: 'New Volunteer',
+    new_profile: 'New Profile',
     prev_hours: 'prev. hours',
     invite_btn: '1-Tap Invite',
     invited_btn: 'Invited',
