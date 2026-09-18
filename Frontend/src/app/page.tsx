@@ -14,13 +14,17 @@ import {
   ChevronRight,
   Sparkles,
   Compass,
+  LogIn,
+  UserPlus,
 } from 'lucide-react';
 import { api, ImpactStats, Mission } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { getLocalizedMission, getLocalizedCategory } from '@/lib/i18nData';
 
 export default function LandingPage() {
   const { t, isRTL, locale } = useTranslation();
+  const { user } = useAuth();
   const [stats, setStats] = useState<ImpactStats>({
     treesPlanted: 0,
     totalImpactHours: 0,
@@ -92,21 +96,45 @@ export default function LandingPage() {
             className="animate-fade-up mt-8 flex flex-wrap items-center gap-3"
             style={{ animationDelay: '240ms' }}
           >
-            <Link
-              href="/missions/create"
-              className="btn-primary inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
-            >
-              <Sparkles className="h-4 w-4" />
-              {t('hero.cta_ai')}
-              <ArrowIcon className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/missions/browse"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
-            >
-              <Compass className="h-4 w-4" />
-              {t('hero.cta_browse')}
-            </Link>
+            {user && (user.role === 'organization' || user.role === 'admin') ? (
+              <>
+                <Link
+                  href="/missions/create"
+                  className="btn-primary inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {t('hero.cta_ai')}
+                  <ArrowIcon className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/missions/browse"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+                >
+                  <Compass className="h-4 w-4" />
+                  {t('hero.cta_browse')}
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/missions/browse"
+                  className="btn-primary inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
+                >
+                  <Compass className="h-4 w-4" />
+                  {t('hero.cta_browse')}
+                  <ArrowIcon className="h-4 w-4" />
+                </Link>
+                {!user ? (
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    {t('hero.cta_login')}
+                  </Link>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </section>

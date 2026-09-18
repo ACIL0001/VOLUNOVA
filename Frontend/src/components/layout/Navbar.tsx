@@ -119,7 +119,7 @@ export default function Navbar() {
     { name: t('nav.about'), href: '/about', icon: Info },
     { name: t('nav.help'), href: '/aide', icon: CircleHelp },
     { name: t('nav.contact'), href: '/contact', icon: Phone },
-    { name: t('nav.admin'), href: '/admin', icon: ShieldCheck },
+    ...(user?.role === 'admin' ? [{ name: t('nav.admin'), href: '/admin', icon: ShieldCheck }] : []),
   ];
 
   const roleInfo = getRoleBadge(user?.role);
@@ -150,7 +150,7 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${
                     isActive
                       ? 'text-[#0d7a6f] bg-[#e6f4f2]'
                       : 'text-[#5b6b7c] hover:text-[#0b1f3a] hover:bg-[#f3f5f8]'
@@ -178,14 +178,16 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* Create Mission CTA */}
-            <Link
-              href="/missions/create"
-              className="btn-primary inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
-            >
-              <PlusCircle className="h-4 w-4" />
-              <span>{t('nav.create_mission')}</span>
-            </Link>
+            {/* Create Mission CTA - Only shown when user is logged in (specifically organization or admin) */}
+            {user && (user.role === 'organization' || user.role === 'admin') && (
+              <Link
+                href="/missions/create"
+                className="btn-primary inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold whitespace-nowrap"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>{t('nav.create_mission')}</span>
+              </Link>
+            )}
 
             {/* Auth section */}
             {user ? (
@@ -355,14 +357,16 @@ export default function Navbar() {
                 </Link>
               );
             })}
-            <Link
-              href="/missions/create"
-              onClick={() => setMobileMenuOpen(false)}
-              className="btn-primary mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold"
-            >
-              <PlusCircle className="h-4 w-4" />
-              {t('nav.create_mission')}
-            </Link>
+            {user && (user.role === 'organization' || user.role === 'admin') && (
+              <Link
+                href="/missions/create"
+                onClick={() => setMobileMenuOpen(false)}
+                className="btn-primary mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold"
+              >
+                <PlusCircle className="h-4 w-4" />
+                {t('nav.create_mission')}
+              </Link>
+            )}
           </div>
         )}
       </div>

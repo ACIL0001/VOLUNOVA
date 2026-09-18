@@ -24,6 +24,8 @@ export const en = {
     cta_ai: 'Launch New Mission with AI',
     cta_demo: 'Live Demo (Split View)',
     cta_browse: 'Explore Missions',
+    cta_login: 'Sign In',
+    cta_join: 'Join the Community',
   },
   impact_wall: {
     badge: 'Live Field Impact Telemetry',

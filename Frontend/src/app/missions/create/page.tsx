@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { api, ExtractedNeedsResponse } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 
 const ICON_MAP: Record<string, any> = {
   hammer: Hammer,
@@ -39,13 +40,30 @@ const ICON_MAP: Record<string, any> = {
 export default function CreateMissionPage() {
   const router = useRouter();
   const { t, isRTL, locale } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedNeedsResponse | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Route guard: only authenticated users can access the creation studio
+  React.useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
   const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <div className="h-8 w-8 border-3 border-[#0d7a6f] border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-[#5b6b7c]">Redirection vers la connexion...</p>
+      </div>
+    );
+  }
 
   const samplePrompts = [
     { title: t('create_mission.sample1_title'), text: t('create_mission.sample1_text') },
