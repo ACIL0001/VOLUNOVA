@@ -1,23 +1,20 @@
 # VOLUNOVA (تكاتف الذكي) — Volunteer Operating System
 
 > **An AI-First Volunteer Management Operating System with Zero-Trust Security Architecture**
-> Built with modern web and mobile frameworks, decoupled into four standalone projects for maximum scalability, security, and independent deployment.
+> Built with modern web and mobile frameworks, with the NGO portal and Admin dashboard unified in Frontend.
 
 ---
 
-## 🏗️ Project Architecture (The 4 Core Projects)
+## Project Architecture
 
 ```
 VOLUNOVA/
 │
-├── 📁 backend/        # Centralized REST & Realtime API (Port 5000)
+├── 📁 Backend/        # Centralized REST & Realtime API (Port 5000)
 │                      # Node.js, Express 5, TypeScript, MongoDB, Gemini AI, Nodemailer, Resend
 │
-├── 📁 frontend/       # Organization & NGO Command Portal (Port 3000)
-│                      # Next.js 16, React 19, Tailwind CSS v4, Lucide, Dual-Screen Pitch Demo
-│
-├── 📁 admin/          # Dedicated Admin Dashboard (Port 3001)
-│                      # Next.js 16, React 19, Telemetry KPIs, NGO Verification Queue, Zero-Trust Audit Logs
+├── 📁 Frontend/       # Web Portal + Admin Dashboard (Port 3000)
+│                      # Next.js 16, React 19, Tailwind CSS v4 — public site, AI studio, /admin
 │
 └── 📁 application/    # Volunteer Mobile Application (Port 8081)
                        # React Native, Expo SDK 57, Login/Signup, Skill Picker, Digital Impact Passport
@@ -25,7 +22,7 @@ VOLUNOVA/
 
 ---
 
-## 🚀 Quick Start (Running Locally)
+## Quick Start (Running Locally)
 
 ### Prerequisites
 - **Node.js**: v20+ or v24
@@ -35,7 +32,7 @@ VOLUNOVA/
 
 ### 1. Start the Backend API (Port 5000)
 ```bash
-cd backend
+cd Backend
 npm install
 npm run dev
 ```
@@ -45,34 +42,26 @@ npm run dev
 
 ---
 
-### 2. Start the NGO Web Portal (Port 3000)
+### 2. Start the Web Portal + Admin (Port 3000)
 ```bash
-cd frontend
+cd Frontend
 npm install
 npm run dev
 ```
 * **Landing & Impact Wall**: [http://localhost:3000](http://localhost:3000)
 * **AI Smart Mission Studio**: [http://localhost:3000/missions/create](http://localhost:3000/missions/create)
 * **Explore Missions**: [http://localhost:3000/missions/browse](http://localhost:3000/missions/browse)
-* **⚡ 180s Hackathon Dual-Screen Demo**: [http://localhost:3000/demo](http://localhost:3000/demo)
+* **About / Contact / Aide**: [http://localhost:3000/about](http://localhost:3000/about) · [http://localhost:3000/contact](http://localhost:3000/contact) · [http://localhost:3000/aide](http://localhost:3000/aide)
+* **180s Dual-Screen Demo**: [http://localhost:3000/demo](http://localhost:3000/demo)
+* **Admin Dashboard**: [http://localhost:3000/admin](http://localhost:3000/admin)
+  - Organizations: [http://localhost:3000/admin/organizations](http://localhost:3000/admin/organizations)
+  - Missions: [http://localhost:3000/admin/missions](http://localhost:3000/admin/missions)
+  - Volunteers: [http://localhost:3000/admin/volunteers](http://localhost:3000/admin/volunteers)
+  - Audit log: [http://localhost:3000/admin/audit](http://localhost:3000/admin/audit)
 
 ---
 
-### 3. Start the Dedicated Admin Dashboard (Port 3001)
-```bash
-cd admin
-npm install
-npm run dev
-```
-* **National Impact Telemetry**: [http://localhost:3001](http://localhost:3001)
-* **NGO Verification Queue**: [http://localhost:3001/organizations](http://localhost:3001/organizations)
-* **Missions Moderation**: [http://localhost:3001/missions](http://localhost:3001/missions)
-* **Volunteer Directory**: [http://localhost:3001/volunteers](http://localhost:3001/volunteers)
-* **Zero-Trust Audit Log**: [http://localhost:3001/audit](http://localhost:3001/audit)
-
----
-
-### 4. Start the Volunteer Mobile App (Port 8081)
+### 3. Start the Volunteer Mobile App (Port 8081)
 ```bash
 cd application
 npm install

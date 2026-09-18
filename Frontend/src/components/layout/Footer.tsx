@@ -1,20 +1,38 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useTranslation } from '@/context/LanguageContext';
 
 export default function Footer() {
   const { t } = useTranslation();
 
   return (
-    <footer className="border-t border-blue-900/20 bg-[#060a14]/90 backdrop-blur-xl py-10 text-center text-xs text-slate-400">
-      <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="font-bold text-white tracking-wide">{t('footer.brand_title')}</span>
-          <span className="text-slate-500">—</span>
-          <span className="text-slate-400">{t('footer.tagline')}</span>
+    <footer className="mt-auto border-t border-[#d8e0ea] bg-white">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-start">
+            <span className="font-display font-semibold tracking-wide text-[#0b1f3a]">
+              {t('footer.brand_title')}
+            </span>
+            <span className="hidden sm:inline text-[#c5d0de]">|</span>
+            <span className="text-[#5b6b7c]">{t('footer.tagline')}</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-semibold">
+            <Link href="/about" className="text-[#5b6b7c] hover:text-[#0d7a6f] transition-colors">
+              {t('footer.about')}
+            </Link>
+            <Link href="/aide" className="text-[#5b6b7c] hover:text-[#0d7a6f] transition-colors">
+              {t('footer.help')}
+            </Link>
+            <Link href="/contact" className="text-[#5b6b7c] hover:text-[#0d7a6f] transition-colors">
+              {t('footer.contact')}
+            </Link>
+          </div>
         </div>
-        <p className="text-slate-500">© {new Date().getFullYear()} {t('footer.rights')}</p>
+        <p className="text-[#5b6b7c] text-xs text-center sm:text-start">
+          © {new Date().getFullYear()} {t('footer.rights')}
+        </p>
       </div>
     </footer>
   );
