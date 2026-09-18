@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
+import { api } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signup, user } = useAuth();
+  const { user } = useAuth();
   const { t } = useTranslation();
 
   const [role, setRole] = useState<'organization' | 'volunteer'>('organization');
@@ -65,7 +66,7 @@ export default function RegisterPage() {
         ? skillsInput.split(',').map((s) => s.trim()).filter(Boolean)
         : [];
 
-      await signup({
+      await api.signup({
         name,
         email,
         password,
@@ -74,14 +75,13 @@ export default function RegisterPage() {
         ...(role === 'organization' ? { category } : { skills: skillsArray }),
       });
 
+      // Clear any auto-saved token so user logs in on the login page as requested
+      api.clearToken();
+
       setSuccessMsg(t('auth.account_created'));
       setTimeout(() => {
-        if (role === 'organization') {
-          router.push('/missions/create');
-        } else {
-          router.push('/missions/browse');
-        }
-      }, 600);
+        router.push('/login?registered=true');
+      }, 700);
     } catch (err: any) {
       setError(err?.message || "Erreur lors de l'inscription. Veuillez vérifier vos données.");
     } finally {

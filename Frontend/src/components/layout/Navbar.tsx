@@ -240,15 +240,6 @@ export default function Navbar() {
                           <span>{t('nav.create_mission')}</span>
                         </Link>
                       )}
-                      {(user.role === 'admin' || user.role === 'organization') && (
-                        <Link
-                          href="/admin"
-                          className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
-                        >
-                          <ShieldCheck className="h-4 w-4 text-[#0d7a6f]" />
-                          <span>{t('auth.admin_portal')}</span>
-                        </Link>
-                      )}
                     </div>
 
                     <div className="pt-1 border-t border-[#eef2f6]">

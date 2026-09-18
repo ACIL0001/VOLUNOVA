@@ -37,6 +37,16 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  // Check if arriving immediately after registration
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('registered') === 'true') {
+        setSuccessMsg(t('auth.account_created'));
+      }
+    }
+  }, [t]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
