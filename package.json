@@ -4,7 +4,12 @@
   "private": true,
   "description": "VOLUNOVA Monorepo Root",
   "scripts": {
+    "dev:backend": "cd Backend && npm run dev",
+    "dev:frontend": "cd Frontend && npm run dev",
+    "build:backend": "cd Backend && npm install && npm run build",
+    "build:frontend": "cd Frontend && npm install && npm run build",
     "build": "cd Backend && npm install && npm run build",
     "start": "cd Backend && npm start"
   }
 }
+

@@ -113,33 +113,54 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    let res: Response;
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      res = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
         headers,
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || `HTTP Error ${res.status}`);
-      }
-      return data.data;
     } catch (err: any) {
-      console.error(`API Error on ${endpoint}:`, err);
-      throw err;
+      console.warn(`[VOLUNOVA API] Backend server unreachable at ${API_BASE}${endpoint}. Make sure the backend is running on port 5000.`);
+      throw new Error(`Serveur backend inaccessible (${API_BASE}). Vérifiez que le serveur backend est démarré.`);
     }
+
+    let data: any;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error(`Réponse serveur invalide (HTTP ${res.status})`);
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Erreur HTTP ${res.status}`);
+    }
+    return data.data;
   }
 
   // 1. Stats
   async getImpactStats(): Promise<ImpactStats> {
-    return this.request<ImpactStats>('/stats/impact-wall');
+    try {
+      return await this.request<ImpactStats>('/stats/impact-wall');
+    } catch {
+      return {
+        treesPlanted: 0,
+        totalImpactHours: 0,
+        volunteersMobilized: 0,
+        activeMissionsCount: 0,
+        fillRatePercentage: 0,
+      };
+    }
   }
 
   // 2. Missions
   async getMissions(query?: Record<string, string>): Promise<Mission[]> {
     const params = new URLSearchParams(query || {}).toString();
     const endpoint = `/missions${params ? `?${params}` : ''}`;
-    return this.request<Mission[]>(endpoint);
+    try {
+      return await this.request<Mission[]>(endpoint);
+    } catch {
+      return [];
+    }
   }
 
   async getMission(id: string): Promise<Mission> {
