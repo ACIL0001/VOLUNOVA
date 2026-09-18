@@ -1,0 +1,24 @@
+services:
+  # 1. VOLUNOVA Central Backend API
+  - type: web
+    name: volunova-backend
+    runtime: node
+    rootDir: Backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  # 2. VOLUNOVA Organization & Admin Frontend Portal
+  - type: web
+    name: volunova-frontend
+    runtime: node
+    rootDir: Frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production

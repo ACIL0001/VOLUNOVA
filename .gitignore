@@ -17,11 +17,15 @@ backend/.env.local
 frontend/.env.local
 admin/.env.local
 
-# Next.js build output
+# Next.js & TypeScript build output
+dist/
+*/dist/
 .next/
 */.next/
 out/
 */out/
+volunteer/
+
 
 # Expo & React Native
 .expo/
