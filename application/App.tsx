@@ -43,6 +43,22 @@ function VolunovaMobileApp() {
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
+  // In-App Toast Alert State
+  const [toastNotif, setToastNotif] = useState<{
+    title: string;
+    body: string;
+    missionId?: string;
+    notifId?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!toastNotif) return;
+    const timer = setTimeout(() => {
+      setToastNotif(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [toastNotif]);
+
   // Load Persisted Session from AsyncStorage on Startup
   useEffect(() => {
     async function loadSession() {
@@ -208,12 +224,23 @@ function VolunovaMobileApp() {
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((prev) => prev + 1);
 
-      // Trigger native phone notification banner with sound and vibration
       const roleName = newNotif?.payload?.roleName || 'Bénévole';
       const missionTitle = newNotif?.payload?.missionTitle || 'Mission';
+      const notifTitle = '🎉 Sélectionné(e) pour une mission !';
+      const notifBody = `Vous avez été sélectionné(e) pour "${roleName}" sur "${missionTitle}".`;
+
+      // Display floating top Toast Banner
+      setToastNotif({
+        title: notifTitle,
+        body: notifBody,
+        missionId: newNotif?.payload?.missionId,
+        notifId: newNotif?._id,
+      });
+
+      // Trigger native phone notification banner with sound and vibration
       displayLocalNotification({
-        title: '🎉 Sélectionné(e) pour une mission !',
-        body: `Vous avez été sélectionné(e) pour "${roleName}" sur "${missionTitle}". Touchez pour voir la mission.`,
+        title: notifTitle,
+        body: `${notifBody} Touchez pour voir la mission.`,
         data: {
           missionId: newNotif?.payload?.missionId,
           needId: newNotif?.payload?.needId,
@@ -255,6 +282,42 @@ function VolunovaMobileApp() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#060A12" />
+
+      {/* Real-time In-App Floating Toast Banner */}
+      {toastNotif && (
+        <View style={styles.toastContainer}>
+          <TouchableOpacity
+            style={styles.toastCard}
+            activeOpacity={0.9}
+            onPress={() => {
+              if (toastNotif.missionId) {
+                handleOpenMissionFromNotification(toastNotif.missionId, toastNotif.notifId);
+              }
+              setToastNotif(null);
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={{ fontSize: 24 }}>🎉</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toastTitle}>{toastNotif.title}</Text>
+                <Text style={styles.toastBody} numberOfLines={2}>
+                  {toastNotif.body}
+                </Text>
+                <Text style={styles.toastActionText}>
+                  {t('notifications.viewMission')} →
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setToastNotif(null)}
+                style={styles.toastCloseBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={styles.toastCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Header with Language Picker & Logout */}
       <View style={[styles.header, { flexDirection }]}>
@@ -934,5 +997,49 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 10,
     fontWeight: '600',
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    elevation: 10,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  toastCard: {
+    backgroundColor: '#0A1329',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  toastTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginBottom: 2,
+  },
+  toastBody: {
+    fontSize: 12,
+    color: '#94A3B8',
+    lineHeight: 16,
+    marginBottom: 4,
+  },
+  toastActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  toastCloseBtn: {
+    padding: 4,
+  },
+  toastCloseText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
