@@ -1,55 +1,57 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Check, ChevronDown, Globe } from 'lucide-react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { Globe, ChevronDown, Check } from 'lucide-react-native';
 import { useTranslation } from '../context/LanguageContext';
 import { MobileLocale, MOBILE_LOCALE_METADATA } from '../locales';
-import { civic, civicRadius, civicShadow } from '../theme/civic';
+import { civic, civicShadow } from '../theme/civic';
+
+const LANGUAGE_NAMES: Record<MobileLocale, Record<MobileLocale, string>> = {
+  ar: { ar: 'العربية', fr: 'الفرنسية', en: 'الإنجليزية' },
+  en: { ar: 'Arabic', fr: 'French', en: 'English' },
+  fr: { ar: 'Arabe', fr: 'Français', en: 'Anglais' },
+};
 
 export default function MobileLanguagePicker() {
-  const { locale, setLocale } = useTranslation();
+  const { locale, setLocale, isRTL } = useTranslation();
   const [open, setOpen] = useState(false);
   const locales: MobileLocale[] = ['ar', 'fr', 'en'];
 
   return (
     <View>
       <TouchableOpacity
-        activeOpacity={0.8}
         onPress={() => setOpen(true)}
         style={styles.trigger}
-        accessibilityRole="button"
         accessibilityLabel="Change language"
+        activeOpacity={0.8}
       >
         <Globe size={14} color={civic.teal} strokeWidth={2.2} />
-        <Text style={styles.code}>{locale.toUpperCase()}</Text>
+        <Text style={styles.triggerText}>{locale.toUpperCase()}</Text>
         <ChevronDown size={12} color={civic.muted} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
-          <View style={styles.menu}>
-            {locales.map((l) => {
-              const selected = locale === l;
-              const meta = MOBILE_LOCALE_METADATA[l];
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+          <View style={[styles.menu, isRTL ? { left: 16 } : { right: 16 }]}>
+            {locales.map((loc) => {
+              const selected = loc === locale;
               return (
                 <TouchableOpacity
-                  key={l}
-                  accessibilityRole="button"
-                  activeOpacity={0.8}
+                  key={loc}
+                  style={[styles.item, selected && styles.itemActive]}
                   onPress={() => {
-                    setLocale(l);
+                    setLocale(loc);
                     setOpen(false);
                   }}
-                  style={[styles.item, selected && styles.itemActive]}
                 >
                   <Text style={[styles.itemText, selected && styles.itemTextActive]}>
-                    {meta.flag}  {l.toUpperCase()} · {meta.nativeName}
+                    {MOBILE_LOCALE_METADATA[loc].flag}  {LANGUAGE_NAMES[locale][loc]}
                   </Text>
                   {selected ? <Check size={14} color={civic.teal} /> : null}
                 </TouchableOpacity>
               );
             })}
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -60,32 +62,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: civic.white,
+    backgroundColor: civic.surface,
     borderWidth: 1,
     borderColor: civic.border,
-    borderRadius: civicRadius.sm,
+    borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
-  code: {
+  triggerText: {
     color: civic.navy,
     fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
-  overlay: {
+  backdrop: {
     flex: 1,
     backgroundColor: civic.overlay,
-    justifyContent: 'flex-start',
-    paddingTop: 72,
-    paddingHorizontal: 20,
   },
   menu: {
-    alignSelf: 'flex-start',
-    width: 220,
-    backgroundColor: civic.white,
+    position: 'absolute',
+    top: 56,
+    width: 180,
+    backgroundColor: civic.surface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: civic.border,
-    borderRadius: civicRadius.md,
     padding: 6,
     ...civicShadow.raised,
   },
@@ -95,14 +96,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   itemActive: {
     backgroundColor: civic.tealSoft,
   },
   itemText: {
     color: civic.navy,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   itemTextActive: {

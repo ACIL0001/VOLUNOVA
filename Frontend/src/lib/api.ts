@@ -59,6 +59,28 @@ export interface MissionNeed {
   equipmentRequired?: string;
 }
 
+export interface MissionApplicant {
+  _id: string;
+  status: string;
+  createdAt?: string;
+  volunteerId?: {
+    _id: string;
+    name: string;
+    email?: string;
+    avatar?: string;
+    city?: string;
+    skills?: string[];
+    reliabilityScore?: number;
+    impactHours?: number;
+  } | string;
+  needId?: {
+    _id?: string;
+    roleName?: string;
+    skillTag?: string;
+    icon?: string;
+  } | string;
+}
+
 export interface Mission {
   _id: string;
   title: string;
@@ -71,6 +93,8 @@ export interface Mission {
   totalSlotsFilled: number;
   estimatedHoursPerVolunteer: number;
   dateStart: string;
+  dateEnd?: string;
+  createdAt?: string;
   orgId?: {
     _id: string;
     name: string;
@@ -79,6 +103,7 @@ export interface Mission {
     verificationStatus: string;
   };
   needs?: MissionNeed[];
+  applicants?: MissionApplicant[];
   matchedVolunteers?: any[];
   userApplication?: any;
 }

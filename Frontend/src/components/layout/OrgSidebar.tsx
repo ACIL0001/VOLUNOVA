@@ -12,6 +12,7 @@ import {
   Building2,
   Building,
   LifeBuoy,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { id: 'overview', href: '/dashboard', tab: 'overview', icon: LayoutDashboard, labelKey: 'dashboard.tab_overview' },
   { id: 'create', href: '/dashboard?tab=create', tab: 'create', icon: PlusCircle, labelKey: 'dashboard.tab_create' },
   { id: 'missions', href: '/dashboard?tab=missions', tab: 'missions', icon: ListChecks, labelKey: 'dashboard.tab_missions' },
+  { id: 'stats', href: '/dashboard?tab=stats', tab: 'stats', icon: BarChart3, labelKey: 'dashboard.tab_stats' },
   { id: 'profile', href: '/dashboard?tab=profile', tab: 'profile', icon: Building, labelKey: 'dashboard.tab_profile' },
   { id: 'support', href: '/dashboard?tab=support', tab: 'support', icon: LifeBuoy, labelKey: 'dashboard.tab_support' },
 ] as const;

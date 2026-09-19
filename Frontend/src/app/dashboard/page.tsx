@@ -21,11 +21,15 @@ import OrgHeader from '@/components/layout/OrgHeader';
 import CreateMissionStudio from '@/components/missions/CreateMissionStudio';
 import OrgProfileTab from '@/components/dashboard/OrgProfileTab';
 import OrgSupportTab from '@/components/dashboard/OrgSupportTab';
+import OrgStatsTab from '@/components/dashboard/OrgStatsTab';
+import OrgMissionsTab from '@/components/dashboard/OrgMissionsTab';
 import { api, Mission } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
 
-type TabId = 'overview' | 'create' | 'missions' | 'profile' | 'support';
+type TabId = 'overview' | 'create' | 'missions' | 'stats' | 'profile' | 'support';
+
+const VALID_TABS: TabId[] = ['overview', 'create', 'missions', 'stats', 'profile', 'support'];
 
 function statusLabel(status: string, t: (k: string) => string) {
   const map: Record<string, string> = {
@@ -45,9 +49,7 @@ function DashboardInner() {
   const { t, locale } = useTranslation();
 
   const initialTab = (searchParams.get('tab') as TabId) || 'overview';
-  const [tab, setTab] = useState<TabId>(
-    ['overview', 'create', 'missions', 'profile', 'support'].includes(initialTab) ? initialTab : 'overview'
-  );
+  const [tab, setTab] = useState<TabId>(VALID_TABS.includes(initialTab) ? initialTab : 'overview');
   const [missions, setMissions] = useState<Mission[]>([]);
   const [organization, setOrganization] = useState<any>(user?.organization || null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ function DashboardInner() {
 
   useEffect(() => {
     const q = searchParams.get('tab') as TabId;
-    if (q && ['overview', 'create', 'missions', 'profile', 'support'].includes(q) && q !== tab) {
+    if (q && VALID_TABS.includes(q) && q !== tab) {
       setTab(q);
     }
   }, [searchParams, tab]);
@@ -107,11 +109,13 @@ function DashboardInner() {
       ? t('dashboard.tab_create')
       : tab === 'missions'
         ? t('dashboard.tab_missions')
-        : tab === 'profile'
-          ? (t('dashboard.tab_profile') || 'Profil Organisation')
-          : tab === 'support'
-            ? (t('dashboard.tab_support') || 'Support & Réclamations')
-            : t('dashboard.tab_overview');
+        : tab === 'stats'
+          ? t('dashboard.tab_stats')
+          : tab === 'profile'
+            ? t('dashboard.tab_profile')
+            : tab === 'support'
+              ? t('dashboard.tab_support')
+              : t('dashboard.tab_overview');
 
   return (
     <>
@@ -274,43 +278,21 @@ function DashboardInner() {
         )}
 
         {tab === 'missions' && (
-          <div className="animate-fade-up space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#0b1f3a]">{t('dashboard.tab_missions')}</h3>
-              <button
-                type="button"
-                onClick={() => switchTab('create')}
-                className="btn-primary inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold"
-              >
-                <PlusCircle className="h-3.5 w-3.5" />
-                {t('dashboard.cta_create')}
-              </button>
-            </div>
+          <OrgMissionsTab
+            missions={missions}
+            loading={loading}
+            onCreate={() => switchTab('create')}
+          />
+        )}
 
-            {loading ? (
-              <div className="py-16 flex justify-center">
-                <div className="h-8 w-8 border-3 border-[#0d7a6f] border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : missions.length === 0 ? (
-              <div className="surface-panel rounded-2xl border border-dashed border-[#d8e0ea] bg-white p-10 text-center">
-                <p className="text-sm font-semibold text-[#0b1f3a]">{t('dashboard.empty_missions')}</p>
-                <button
-                  type="button"
-                  onClick={() => switchTab('create')}
-                  className="btn-primary mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  {t('dashboard.cta_create')}
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {missions.map((m) => (
-                  <MissionRow key={m._id} mission={m} t={t} />
-                ))}
-              </div>
-            )}
-          </div>
+        {tab === 'stats' && (
+          loading ? (
+            <div className="py-16 flex justify-center">
+              <div className="h-8 w-8 border-3 border-[#0d7a6f] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <OrgStatsTab missions={missions} />
+          )
         )}
 
         {tab === 'profile' && (

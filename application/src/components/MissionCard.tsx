@@ -1,75 +1,83 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Clock, Compass, Flame, MapPin } from 'lucide-react-native';
-import { civic } from '../theme/civic';
-import { CivicBadge, CivicCard, CivicProgress, SecondaryButton } from './ui/Civic';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MapPin, Clock, Flame, ArrowRight, ArrowLeft } from 'lucide-react-native';
+import { civic, civicShadow } from '../theme/civic';
+import { useTranslation } from '../context/LanguageContext';
+import ProgressBar from './ProgressBar';
 
-export function fillPercent(mission: any) {
-  return mission?.totalSlotsNeeded > 0
-    ? Math.round((mission.totalSlotsFilled / mission.totalSlotsNeeded) * 100)
-    : 0;
-}
+export type MissionCardData = {
+  _id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  venueName?: string;
+  urgency?: string;
+  estimatedHoursPerVolunteer?: number;
+  totalSlotsNeeded?: number;
+  totalSlotsFilled?: number;
+  orgId?: { name?: string };
+};
 
-export function localizeCategory(category: string, t: (path: string) => string) {
-  const key = `categories.${category}`;
-  const translated = t(key);
-  return translated === key ? category : translated;
-}
-
-export function localizeUrgency(urgency: string, t: (path: string) => string) {
-  const key = `urgency.${urgency}`;
-  const translated = t(key);
-  return translated === key ? urgency : translated;
-}
-
-interface MissionCardProps {
-  mission: any;
-  t: (path: string) => string;
-  textAlign: 'left' | 'right';
-  flexDirection: 'row' | 'row-reverse';
-  onOpen: () => void;
-}
+const URGENCY_KEY: Record<string, string> = {
+  urgent: 'urgency.urgent',
+  high: 'urgency.high',
+  medium: 'urgency.medium',
+  low: 'urgency.low',
+};
 
 export default function MissionCard({
   mission,
-  t,
-  textAlign,
-  flexDirection,
   onOpen,
-}: MissionCardProps) {
-  const pct = fillPercent(mission);
+}: {
+  mission: MissionCardData;
+  onOpen: () => void;
+}) {
+  const { t, isRTL, textAlign, flexDirection } = useTranslation();
+  const needed = mission.totalSlotsNeeded || 0;
+  const filled = mission.totalSlotsFilled || 0;
+  const pct = needed > 0 ? Math.round((filled / needed) * 100) : 0;
+  const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
+  const urgencyKey = URGENCY_KEY[mission.urgency || 'medium'] || 'urgency.medium';
+  const categoryKey = mission.category && t(`categories.${mission.category}`) !== `categories.${mission.category}`
+    ? t(`categories.${mission.category}`)
+    : mission.category || t('categories.All');
 
   return (
-    <CivicCard>
-      <View style={[styles.topRow, { flexDirection }]}>
-        <CivicBadge label={localizeCategory(mission.category, t)} tone="teal" />
-        {mission.urgency ? (
-          <View style={[styles.urgency, { flexDirection }]}>
-            <Flame size={12} color={civic.amber} strokeWidth={2.2} />
-            <Text style={styles.urgencyText}>{localizeUrgency(mission.urgency, t)}</Text>
-          </View>
-        ) : null}
+    <View style={styles.card}>
+      <View style={[styles.top, { flexDirection }]}>
+        <View style={styles.cat}>
+          <Text style={styles.catText} numberOfLines={1}>{categoryKey}</Text>
+        </View>
+        <View style={styles.urgency}>
+          <Flame size={11} color={civic.amberText} />
+          <Text style={styles.urgencyText}>{t(urgencyKey)}</Text>
+        </View>
       </View>
 
       <Text style={[styles.title, { textAlign }]} numberOfLines={2}>
         {mission.title}
       </Text>
-      {!!mission.description && (
+      {mission.orgId?.name ? (
+        <Text style={[styles.org, { textAlign }]} numberOfLines={1}>
+          {mission.orgId.name}
+        </Text>
+      ) : null}
+      {mission.description ? (
         <Text style={[styles.desc, { textAlign }]} numberOfLines={3}>
           {mission.description}
         </Text>
-      )}
+      ) : null}
 
-      <View style={[styles.metaRow, { flexDirection }]}>
-        <View style={[styles.metaChip, { flexDirection }]}>
-          <MapPin size={13} color={civic.teal} />
-          <Text style={styles.metaText} numberOfLines={1}>
-            {mission.venueName}
-          </Text>
-        </View>
-        <View style={[styles.metaChip, { flexDirection }]}>
-          <Clock size={13} color={civic.navy} />
-          <Text style={styles.metaText}>
+      <View style={styles.metaRow}>
+        {mission.venueName ? (
+          <View style={styles.chip}>
+            <MapPin size={12} color={civic.teal} />
+            <Text style={styles.chipText} numberOfLines={1}>{mission.venueName}</Text>
+          </View>
+        ) : null}
+        <View style={styles.chip}>
+          <Clock size={12} color={civic.navy} />
+          <Text style={styles.chipText}>
             {mission.estimatedHoursPerVolunteer || 4} {t('browse.hours_suffix')}
           </Text>
         </View>
@@ -77,31 +85,50 @@ export default function MissionCard({
 
       <View style={styles.footer}>
         <View style={[styles.progressLabels, { flexDirection }]}>
-          <Text style={styles.progressLabel}>{t('browse.slots_completion')}</Text>
-          <Text style={styles.progressValue}>
-            {mission.totalSlotsFilled} / {mission.totalSlotsNeeded} ({pct}%)
+          <Text style={styles.progressMuted}>{t('browse.slots_completion')}</Text>
+          <Text style={styles.progressStrong}>
+            {filled} / {needed} ({pct}%)
           </Text>
         </View>
-        <CivicProgress pct={pct} />
-        <View style={{ height: 12 }} />
-        <SecondaryButton
-          label={t('missions.open_ops_room')}
-          onPress={onOpen}
-          icon={<Compass size={15} color={civic.navy} />}
-        />
+        <ProgressBar percent={pct} />
+        <TouchableOpacity style={styles.cta} onPress={onOpen} activeOpacity={0.85}>
+          <Text style={styles.ctaText}>{t('missions.open_ops_room')}</Text>
+          <ArrowIcon size={14} color={civic.navy} />
+        </TouchableOpacity>
       </View>
-    </CivicCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  topRow: {
+  card: {
+    backgroundColor: civic.surface,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: 16,
+    padding: 16,
+    ...civicShadow.card,
+  },
+  top: {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
     gap: 8,
   },
+  cat: {
+    backgroundColor: civic.tealSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    maxWidth: '62%',
+  },
+  catText: {
+    color: civic.teal,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   urgency: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: civic.amberBg,
@@ -110,29 +137,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   urgencyText: {
-    color: civic.amber,
-    fontSize: 11,
+    color: civic.amberText,
+    fontSize: 10,
     fontWeight: '700',
   },
   title: {
     color: civic.navy,
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 21,
+    marginBottom: 4,
+  },
+  org: {
+    color: civic.muted,
+    fontSize: 12,
     marginBottom: 6,
   },
   desc: {
     color: civic.muted,
     fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   metaRow: {
+    flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
+    gap: 6,
+    marginBottom: 12,
   },
-  metaChip: {
+  chip: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
@@ -143,7 +177,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     maxWidth: '100%',
   },
-  metaText: {
+  chipText: {
     color: civic.muted,
     fontSize: 11,
     fontWeight: '600',
@@ -153,19 +187,35 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: civic.border,
     paddingTop: 12,
+    gap: 8,
   },
   progressLabels: {
     justifyContent: 'space-between',
-    marginBottom: 6,
+    alignItems: 'center',
   },
-  progressLabel: {
+  progressMuted: {
     color: civic.muted,
     fontSize: 11,
-    fontWeight: '600',
   },
-  progressValue: {
+  progressStrong: {
     color: civic.navy,
     fontSize: 11,
+    fontWeight: '700',
+  },
+  cta: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  ctaText: {
+    color: civic.navy,
+    fontSize: 13,
     fontWeight: '700',
   },
 });

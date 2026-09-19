@@ -494,7 +494,7 @@ function VolunovaMobileApp() {
           <View style={[styles.profileLeft, { flexDirection }]}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+        </View>
             <View>
               <Text style={[styles.greeting, { textAlign }]}>{t('header.greeting')}</Text>
               <Text style={[styles.userName, { textAlign }]} numberOfLines={1}>
@@ -510,13 +510,13 @@ function VolunovaMobileApp() {
           </View>
         </View>
 
-        <View style={styles.statusRow}>
+              <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: serverOnline ? civic.teal : '#d97706' }]} />
-          <Text style={styles.statusText}>
-            {serverOnline ? t('telemetry.online') : t('telemetry.offline')}
-          </Text>
+                <Text style={styles.statusText}>
+                  {serverOnline ? t('telemetry.online') : t('telemetry.offline')}
+                </Text>
         </View>
-      </View>
+              </View>
 
       <ScrollView
         contentContainerStyle={{
@@ -528,7 +528,7 @@ function VolunovaMobileApp() {
           gap: 14,
         }}
       >
-        {activeTab === 'matched' && (
+              {activeTab === 'matched' && (
           <View>
             <View style={styles.impactGrid}>
               {impactItems.map((item) => {
@@ -676,7 +676,7 @@ function VolunovaMobileApp() {
           </View>
         )}
 
-        {activeTab === 'browse' && (
+              {activeTab === 'browse' && (
           <View>
             <Text style={styles.pageBadge}>{t('browse.badge')}</Text>
             <Text style={[styles.pageTitle, { textAlign }]}>{t('browse.title')}</Text>
@@ -745,7 +745,7 @@ function VolunovaMobileApp() {
           </View>
         )}
 
-        {activeTab === 'passport' && (
+              {activeTab === 'passport' && (
           <CivicCard>
             <Award size={28} color={civic.teal} style={{ alignSelf: 'center', marginBottom: 8 }} />
             <Text style={styles.passportTitle}>{t('passport.title')}</Text>
@@ -810,7 +810,7 @@ function VolunovaMobileApp() {
           <VolunteerProfileView
             user={currentUser}
             token={authToken}
-            impactHours={impactHours}
+                  impactHours={impactHours}
             t={t}
             locale={locale}
             isRTL={isRTL}
@@ -820,7 +820,7 @@ function VolunovaMobileApp() {
             onOpenPassport={() => setActiveTab('passport')}
           />
         )}
-      </ScrollView>
+          </ScrollView>
 
       <View style={[styles.tabBar, { height: tabBarHeight, paddingBottom: isPhone ? 10 : 12 }]}>
         {(

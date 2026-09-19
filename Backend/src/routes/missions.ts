@@ -121,10 +121,20 @@ router.get(
       const missionIds = missions.map((m) => m._id);
       const allNeeds = await MissionNeed.find({ missionId: { $in: missionIds } }).lean();
 
-      const enriched = missions.map((m) => ({
-        ...m,
-        needs: allNeeds.filter((n) => n.missionId.toString() === m._id.toString()),
-      }));
+      const allApplications = await Application.find({ missionId: { $in: missionIds } })
+        .populate('volunteerId', 'name email avatar skills city reliabilityScore impactHours')
+        .populate('needId', 'roleName skillTag icon')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      const enriched = missions.map((m) => {
+        const mid = m._id.toString();
+        return {
+          ...m,
+          needs: allNeeds.filter((n) => n.missionId.toString() === mid),
+          applicants: allApplications.filter((a) => a.missionId.toString() === mid),
+        };
+      });
 
       return res.json({
         ok: true,
