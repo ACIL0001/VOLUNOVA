@@ -20,6 +20,7 @@ import {
 import { api, Mission } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import { subscribeToMissionOps } from '@/lib/socket';
 import { getLocalizedMission, getLocalizedCategory, getLocalizedUrgency, getLocalizedVolunteerSkill } from '@/lib/i18nData';
 
 export default function MissionOpsRoom() {
@@ -51,12 +52,23 @@ export default function MissionOpsRoom() {
 
   useEffect(() => {
     fetchMission();
-    // Poll every 3 seconds to capture live joins from phone/demo screen
+
+    // ⚡ Real-Time Socket.IO Mission Room Listener
+    const unsubscribe = subscribeToMissionOps(missionId, (data) => {
+      console.log('⚡ [Mission Ops Socket] Real-time update received:', data);
+      fetchMission();
+    });
+
+    // Fallback heartbeat polling
     const timer = setInterval(() => {
       fetchMission();
       setAutoRefreshCount((c) => c + 1);
-    }, 3000);
-    return () => clearInterval(timer);
+    }, 6000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(timer);
+    };
   }, [missionId]);
 
   const handleInvite = async (volId: string) => {

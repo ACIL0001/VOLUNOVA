@@ -29,6 +29,7 @@ import {
 import { api, NotificationItem } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import { subscribeToUserNotifications } from '@/lib/socket';
 import LanguageSelector from '@/components/ui/LanguageSelector';
 
 export default function Navbar() {
@@ -83,6 +84,7 @@ export default function Navbar() {
     }
   }, [user]);
 
+  // ⚡ Real-Time Socket Connection & Notification Listener
   useEffect(() => {
     if (!user || (user.role !== 'organization' && user.role !== 'admin')) {
       setNotifications([]);
@@ -90,9 +92,23 @@ export default function Navbar() {
       return;
     }
 
+    // Initial data fetch
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 4000);
-    return () => clearInterval(interval);
+
+    // Subscribe to real-time private user socket channel
+    const unsubscribe = subscribeToUserNotifications(user._id, (newNotif) => {
+      console.log('⚡ [Navbar Socket] Real-time notification received:', newNotif);
+      setNotifications((prev) => [newNotif, ...prev.filter((n) => n._id !== newNotif._id)]);
+      setUnreadCount((prev) => prev + 1);
+    });
+
+    // Fallback heartbeat polling
+    const interval = setInterval(fetchNotifications, 10000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [user, fetchNotifications]);
 
   const handleMarkAllRead = async () => {

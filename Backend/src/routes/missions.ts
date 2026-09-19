@@ -8,6 +8,7 @@ import { triggerRealtimeEvent } from '../config/pusher';
 import { calculateMatchScore } from '../services/smartMatcher';
 import { logAuditEvent } from '../services/auditLogger';
 import { sendMissionAcceptedEmail } from '../services/emailService';
+import { emitToUser, emitToMission } from '../config/socket';
 
 const router = Router();
 
@@ -304,7 +305,7 @@ router.post(
           }
 
           if (orgUserId) {
-            await Notification.create({
+            const notifDoc = await Notification.create({
               userId: orgUserId,
               type: 'application_accepted',
               payload: {
@@ -316,6 +317,22 @@ router.post(
                 message: `${volunteer?.name || 'Un bénévole'} a accepté l'invitation pour la mission "${mission.title}" (Rôle: ${updatedNeed.roleName}).`,
               },
               channel: 'in_app',
+            });
+
+            // ⚡ Real-Time Socket.IO direct push to organization
+            emitToUser(orgUserId, 'notification:new', {
+              notification: notifDoc,
+            });
+
+            // ⚡ Real-Time Socket.IO push to mission room
+            emitToMission(missionId, 'slot_updated', {
+              needId: updatedNeed._id,
+              roleName: updatedNeed.roleName,
+              quantityFulfilled: updatedNeed.quantityFulfilled,
+              quantityNeeded: updatedNeed.quantityNeeded,
+              totalSlotsFilled: mission?.totalSlotsFilled,
+              totalSlotsNeeded: mission?.totalSlotsNeeded,
+              volunteerName: volunteer?.name || 'متطوع جديد',
             });
 
             await triggerRealtimeEvent(`user-${orgUserId}`, 'notification_received', {
@@ -400,7 +417,7 @@ router.post(
 
       const need = needId ? await MissionNeed.findById(needId) : await MissionNeed.findOne({ missionId });
 
-      await Notification.create({
+      const notifDoc = await Notification.create({
         userId: volunteer._id,
         type: 'mission_matched',
         payload: {
@@ -411,6 +428,11 @@ router.post(
           message: `L'organisation vous a invité(e) pour le rôle "${need?.roleName || 'Bénévole'}" sur la mission "${mission.title}".`,
         },
         channel: 'in_app',
+      });
+
+      // ⚡ Real-Time Socket.IO emit to volunteer
+      emitToUser(volunteer._id, 'notification:new', {
+        notification: notifDoc,
       });
 
       return res.json({ ok: true, message: 'Invitation envoyée avec succès' });

@@ -1,8 +1,10 @@
 import 'dotenv/config';
+import http from 'http';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { connectDB } from './config/db';
+import { initSocket } from './config/socket';
 
 // Routes
 import authRoutes from './routes/auth';
@@ -15,6 +17,8 @@ import seedRoutes from './routes/seed';
 import adminRoutes from './routes/admin';
 
 const app = express();
+const server = http.createServer(app);
+const io = initSocket(server);
 const PORT = Number(process.env.PORT) || 5000;
 
 // Security & Middlewares
@@ -120,9 +124,9 @@ async function ensureDefaultAdmin() {
 
 // Start Server & Connect Database (Dual-stack IPv4 and IPv6)
 async function startServer() {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`====================================================`);
-    console.log(`🚀 VOLUNOVA Backend running on port: ${PORT} (Dual-Stack IPv4/IPv6)`);
+    console.log(`🚀 VOLUNOVA Backend running on port: ${PORT} (Dual-Stack IPv4/IPv6 with Real-Time WebSockets)`);
     console.log(`📡 Health check: http://127.0.0.1:${PORT}/api/health`);
     console.log(`⚡ 1-Click Demo Seed: POST http://127.0.0.1:${PORT}/api/seed`);
     console.log(`====================================================`);
