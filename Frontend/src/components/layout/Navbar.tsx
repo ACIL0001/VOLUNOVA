@@ -22,17 +22,29 @@ import {
   Bell,
   UserCheck,
   Sparkles,
+  Home,
+  Globe,
+  Check,
 } from 'lucide-react';
 import { api, NotificationItem } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { subscribeToUserNotifications } from '@/lib/socket';
 import LanguageSelector from '@/components/ui/LanguageSelector';
+import { Locale, LOCALE_METADATA } from '@/locales';
+
+const LOCALES: Locale[] = ['ar', 'fr', 'en'];
+
+const LANGUAGE_NAMES: Record<Locale, Record<Locale, string>> = {
+  ar: { ar: 'العربية', fr: 'الفرنسية', en: 'الإنجليزية' },
+  en: { ar: 'Arabic', fr: 'French', en: 'English' },
+  fr: { ar: 'Arabe', fr: 'Français', en: 'Anglais' },
+};
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale, setLocale, dir } = useTranslation();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -250,7 +262,10 @@ export default function Navbar() {
               <div className="relative" ref={notificationRef}>
                 <button
                   type="button"
-                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  onClick={() => {
+                    setNotificationOpen(!notificationOpen);
+                    setAvatarMenuOpen(false);
+                  }}
                   aria-expanded={notificationOpen}
                   aria-label={t('nav.notifications')}
                   className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8e0ea] bg-white text-[#5b6b7c] hover:text-[#0b1f3a] hover:border-[#b8c6d6] transition-colors"
@@ -351,7 +366,11 @@ export default function Navbar() {
             {user ? (
               <div className="relative" ref={avatarMenuRef}>
                 <button
-                  onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                  type="button"
+                  onClick={() => {
+                    setAvatarMenuOpen(!avatarMenuOpen);
+                    setNotificationOpen(false);
+                  }}
                   aria-expanded={avatarMenuOpen}
                   className="flex items-center gap-2 p-1.5 rounded-xl border border-[#d8e0ea] bg-white hover:border-[#0d7a6f] hover:bg-[#f8fafb] transition-all shadow-xs"
                 >
@@ -368,9 +387,12 @@ export default function Navbar() {
                   <ChevronDown className={`h-3.5 w-3.5 text-[#5b6b7c] transition-transform ${avatarMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Dropdown Menu */}
                 {avatarMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-64 rounded-xl border border-[#d8e0ea] bg-white shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div
+                    className={`absolute mt-2 w-64 rounded-xl border border-[#d8e0ea] bg-white shadow-xl py-2 z-50 ${
+                      dir === 'rtl' ? 'left-0' : 'right-0'
+                    }`}
+                  >
                     <div className="px-4 py-3 border-b border-[#eef2f6]">
                       <p className="text-sm font-bold text-[#0b1f3a] truncate">{user.name}</p>
                       <p className="text-xs text-[#5b6b7c] truncate mt-0.5">{user.email}</p>
@@ -384,8 +406,17 @@ export default function Navbar() {
 
                     <div className="py-1">
                       <Link
+                        href="/"
+                        onClick={() => setAvatarMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
+                      >
+                        <Home className="h-4 w-4 text-[#0d7a6f]" />
+                        <span>{t('dashboard.back_home')}</span>
+                      </Link>
+                      <Link
                         href="/missions/browse"
-                        className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
+                        onClick={() => setAvatarMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
                       >
                         <Compass className="h-4 w-4 text-[#0d7a6f]" />
                         <span>{t('nav.browse')}</span>
@@ -393,7 +424,8 @@ export default function Navbar() {
                       {user.role === 'organization' && (
                         <Link
                           href="/dashboard"
-                          className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
+                          onClick={() => setAvatarMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
                         >
                           <LayoutDashboard className="h-4 w-4 text-[#0d7a6f]" />
                           <span>{t('auth.go_dashboard')}</span>
@@ -402,7 +434,8 @@ export default function Navbar() {
                       {user.role === 'admin' && (
                         <Link
                           href="/admin"
-                          className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
+                          onClick={() => setAvatarMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
                         >
                           <ShieldCheck className="h-4 w-4 text-[#0d7a6f]" />
                           <span>{t('auth.admin_portal')}</span>
@@ -410,10 +443,42 @@ export default function Navbar() {
                       )}
                     </div>
 
+                    <div className="border-t border-[#eef2f6] px-3 py-2">
+                      <div className="flex items-center gap-1.5 px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8fa0b3]">
+                        <Globe className="h-3 w-3" />
+                        <span>Langue</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {LOCALES.map((loc) => {
+                          const selected = locale === loc;
+                          const meta = LOCALE_METADATA[loc];
+                          const label = LANGUAGE_NAMES[locale]?.[loc] || meta.nativeName;
+                          return (
+                            <button
+                              key={loc}
+                              type="button"
+                              onClick={() => setLocale(loc)}
+                              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors ${
+                                selected
+                                  ? 'bg-[#e6f4f2] text-[#0d7a6f]'
+                                  : 'text-[#0b1f3a] hover:bg-[#f3f5f8]'
+                              }`}
+                            >
+                              <span>
+                                {meta.code} · {label}
+                              </span>
+                              {selected && <Check className="h-3.5 w-3.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div className="pt-1 border-t border-[#eef2f6]">
                       <button
+                        type="button"
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
                       >
                         <LogOut className="h-4 w-4" />
                         <span>{t('auth.logout_btn')}</span>
@@ -432,13 +497,16 @@ export default function Navbar() {
               </Link>
             )}
 
-            <div className="ms-2 ps-3 border-s border-[#d8e0ea]">
-              <LanguageSelector />
-            </div>
+            {/* Language only for guests — logged-in users pick it in the name dropdown */}
+            {!user && (
+              <div className="ms-2 ps-3 border-s border-[#d8e0ea]">
+                <LanguageSelector />
+              </div>
+            )}
           </div>
 
           <div className="flex sm:hidden items-center gap-2">
-            <LanguageSelector />
+            {!user && <LanguageSelector />}
             {user && (user.role === 'organization' || user.role === 'admin') && (
               <button
                 type="button"
@@ -482,7 +550,38 @@ export default function Navbar() {
                     </span>
                   </div>
                 </div>
+
+                <div className="mt-3 space-y-0.5">
+                  <div className="flex items-center gap-1.5 px-1 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#8fa0b3]">
+                    <Globe className="h-3 w-3" />
+                    <span>Langue</span>
+                  </div>
+                  {LOCALES.map((loc) => {
+                    const selected = locale === loc;
+                    const meta = LOCALE_METADATA[loc];
+                    const label = LANGUAGE_NAMES[locale]?.[loc] || meta.nativeName;
+                    return (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => setLocale(loc)}
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors ${
+                          selected
+                            ? 'bg-[#e6f4f2] text-[#0d7a6f]'
+                            : 'text-[#0b1f3a] hover:bg-white'
+                        }`}
+                      >
+                        <span>
+                          {meta.code} · {label}
+                        </span>
+                        {selected && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-red-200 bg-white text-xs font-semibold text-red-600 hover:bg-red-50"
                 >

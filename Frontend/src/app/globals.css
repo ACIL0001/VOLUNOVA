@@ -150,6 +150,136 @@ body {
   animation: soft-zoom 8s ease-out both;
 }
 
+/* ── Auth pages (login / register) ── */
+.auth-page-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(13, 122, 111, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 80%, rgba(11, 31, 58, 0.06), transparent 50%),
+    radial-gradient(ellipse 50% 35% at 0% 70%, rgba(13, 122, 111, 0.07), transparent 45%),
+    linear-gradient(180deg, #f4f7fa 0%, #eef3f7 100%);
+}
+
+.auth-page-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(11, 31, 58, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 31, 58, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent);
+  opacity: 0.7;
+}
+
+@keyframes auth-logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes auth-ring-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-logo-wrap {
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.auth-logo-float {
+  animation: auth-logo-float 4.5s ease-in-out infinite;
+}
+
+.auth-logo-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.15rem;
+  border: 1.5px solid rgba(13, 122, 111, 0.35);
+  animation: auth-ring-pulse 2.8s ease-out infinite;
+}
+
+.auth-logo-ring--delay {
+  animation-delay: 1.4s;
+  border-color: rgba(11, 31, 58, 0.2);
+}
+
+.auth-brand-enter {
+  animation: auth-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-brand-enter-delay-1 {
+  animation: auth-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+.auth-brand-enter-delay-2 {
+  animation: auth-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+}
+
+.auth-brand-enter-delay-3 {
+  animation: auth-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both;
+}
+
+.auth-card-enter {
+  animation: auth-enter 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+
+.auth-input {
+  width: 100%;
+  border-radius: 0.875rem;
+  border: 1px solid #d8e0ea;
+  background: rgba(248, 250, 252, 0.9);
+  padding-block: 0.7rem;
+  padding-inline: 2.65rem 1rem;
+  font-size: 0.875rem;
+  color: #0b1f3a;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.auth-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: #0d7a6f;
+  box-shadow: 0 0 0 3px rgba(13, 122, 111, 0.14);
+}
+
+.auth-input::placeholder {
+  color: #8fa0b3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-logo-float,
+  .auth-logo-ring,
+  .auth-logo-ring--delay,
+  .auth-brand-enter,
+  .auth-brand-enter-delay-1,
+  .auth-brand-enter-delay-2,
+  .auth-brand-enter-delay-3,
+  .auth-card-enter {
+    animation: none !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

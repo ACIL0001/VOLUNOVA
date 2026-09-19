@@ -29,7 +29,7 @@ export default function CreateMissionPage() {
   }, [user, loading, router]);
 
   if (loading || !user) {
-    return (
+  return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="h-8 w-8 border-3 border-[#0d7a6f] border-t-transparent rounded-full animate-spin" />
       </div>
@@ -40,8 +40,8 @@ export default function CreateMissionPage() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="h-8 w-8 border-3 border-[#0d7a6f] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    </div>
+  );
   }
 
   if (user.role !== 'admin') {

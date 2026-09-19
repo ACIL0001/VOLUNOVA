@@ -21,7 +21,8 @@ const SignupSchema = z.object({
   city: z.string().default('Algiers'),
   phone: z.string().optional(),
   orgName: z.string().optional(),
-  category: z.string().optional(),
+  /** Single string or multi-select list of activity sectors */
+  category: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 const LoginSchema = z.object({
@@ -38,6 +39,12 @@ router.post(
     try {
       const { name, email, password, role, skills, city, phone, orgName, category } = req.body;
 
+      const categoryNormalized = Array.isArray(category)
+        ? category.map((c: string) => String(c).trim()).filter(Boolean).join(', ')
+        : typeof category === 'string'
+          ? category.trim()
+          : '';
+
       // Ensure volunteers provide at least one valid skill
       if (role === 'volunteer' && (!skills || !Array.isArray(skills) || skills.filter((s: any) => typeof s === 'string' && s.trim().length > 0).length === 0)) {
         return res.status(400).json({
@@ -45,6 +52,16 @@ router.post(
           error: {
             code: 'SKILLS_REQUIRED',
             message: 'Au moins une compétence est requise pour créer un profil bénévole.',
+          },
+        });
+      }
+
+      if (role === 'organization' && !categoryNormalized) {
+        return res.status(400).json({
+          ok: false,
+          error: {
+            code: 'CATEGORY_REQUIRED',
+            message: 'Au moins un secteur d’activité est requis pour une organisation.',
           },
         });
       }
@@ -79,7 +96,7 @@ router.post(
         organization = await Organization.create({
           userId: user._id,
           name: orgName || name,
-          category: category || 'Community Impact',
+          category: categoryNormalized || 'Community Impact',
           verificationStatus: 'verified', // Pre-verified for demo convenience
           verifiedAt: new Date(),
         });

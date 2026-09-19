@@ -118,8 +118,6 @@ function DashboardInner() {
       <OrgHeader
         title={headerTitle}
         subtitle={organization?.name || user?.name}
-        onRefresh={tab !== 'create' ? loadMine : undefined}
-        loading={loading}
       />
 
       <main className="p-6 space-y-6 max-w-6xl w-full mx-auto">

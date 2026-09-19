@@ -260,6 +260,8 @@ class ApiService {
     role: 'volunteer' | 'organization';
     city?: string;
     skills?: string[];
+    orgName?: string;
+    category?: string | string[];
   }): Promise<any> {
     const res = await this.request<{ token: string; user: any }>('/auth/signup', {
       method: 'POST',

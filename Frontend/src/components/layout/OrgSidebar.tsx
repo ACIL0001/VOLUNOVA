@@ -65,13 +65,16 @@ export default function OrgSidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-shrink-0 bg-white border-r border-[#d8e0ea] flex-col justify-between p-5 sticky top-0 h-screen overflow-y-auto">
         <div>
-          <Link href="/dashboard" className="flex items-center gap-3 mb-8 group">
+          <Link
+            href="/dashboard"
+            className="mb-8 flex w-full items-center justify-center group"
+          >
             <Image
               src="/logo.png"
               alt="VOLUNOVA"
-              width={140}
-              height={48}
-              className="h-12 w-auto object-contain"
+              width={200}
+              height={72}
+              className="h-[4.25rem] w-auto object-contain transition-opacity group-hover:opacity-90"
               priority
             />
           </Link>

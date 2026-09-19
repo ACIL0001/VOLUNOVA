@@ -15,7 +15,7 @@ interface AuthContextType {
     role: 'volunteer' | 'organization';
     city?: string;
     skills?: string[];
-    category?: string;
+    category?: string | string[];
     orgName?: string;
   }) => Promise<any>;
   logout: () => void;
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: 'volunteer' | 'organization';
     city?: string;
     skills?: string[];
-    category?: string;
+    category?: string | string[];
     orgName?: string;
   }) => {
     const res = await api.signup(data);

@@ -10,9 +10,19 @@ export default function ConditionalChrome({ children }: { children: React.ReactN
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
   const isOrgDashboard = pathname?.startsWith('/dashboard');
+  const isAuthPage = pathname === '/login' || pathname === '/register';
 
   if (isAdmin || isOrgDashboard) {
     return <>{children}</>;
+  }
+
+  if (isAuthPage) {
+    return (
+      <>
+        <main className="flex-1">{children}</main>
+        <FloatingLanguageButton />
+      </>
+    );
   }
 
   return (
