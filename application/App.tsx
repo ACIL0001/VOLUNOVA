@@ -15,6 +15,9 @@ import { LanguageProvider, useTranslation } from './src/context/LanguageContext'
 import MobileLanguagePicker from './src/components/MobileLanguagePicker';
 import AuthScreen from './src/components/AuthScreen';
 import { AVAILABLE_SKILLS } from './src/components/SkillPickerModal';
+import NotificationsModal, { MobileNotification } from './src/components/NotificationsModal';
+import { subscribeVolunteerNotifications } from './src/services/mobileSocket';
+import { registerPushNotifications, setupPushNotificationTapListener } from './src/services/pushService';
 import { getBackendUrl } from './src/config/apiConfig';
 
 const BACKEND_URL = getBackendUrl();
@@ -33,6 +36,12 @@ function VolunovaMobileApp() {
   const [authLoading, setAuthLoading] = useState(true);
   const [missions, setMissions] = useState<any[]>([]);
   const [loadingMissions, setLoadingMissions] = useState(true);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<MobileNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Load Persisted Session from AsyncStorage on Startup
   useEffect(() => {
@@ -131,6 +140,81 @@ function VolunovaMobileApp() {
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!authToken) return;
+    setLoadingNotifications(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (data.ok && data.data) {
+        const list = Array.isArray(data.data.notifications)
+          ? data.data.notifications
+          : Array.isArray(data.data)
+          ? data.data
+          : [];
+        setNotifications(list);
+        const unread = typeof data.data.unreadCount === 'number'
+          ? data.data.unreadCount
+          : list.filter((n: any) => !n.readAt).length;
+        setUnreadCount(unread);
+      }
+    } catch (e) {
+      console.warn('Could not fetch notifications:', e);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    if (!authToken) return;
+    try {
+      await fetch(`${BACKEND_URL}/notifications/read-all`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch (e) {
+      console.warn('Could not mark all notifications as read:', e);
+    }
+  };
+
+  const handleOpenMissionFromNotification = (missionId: string, notifId?: string) => {
+    setNotifModalVisible(false);
+    if (notifId && authToken) {
+      fetch(`${BACKEND_URL}/notifications/${notifId}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}` },
+      }).catch(() => {});
+      setNotifications((prev) => prev.map((n) => (n._id === notifId ? { ...n, readAt: new Date().toISOString() } : n)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+    setActiveTab('matched');
+  };
+
+  useEffect(() => {
+    if (!authToken || !currentUser?._id) return;
+
+    fetchNotifications();
+    registerPushNotifications(authToken);
+
+    const cleanupTapListener = setupPushNotificationTapListener((missionId) => {
+      handleOpenMissionFromNotification(missionId);
+    });
+
+    const cleanupSocket = subscribeVolunteerNotifications(currentUser._id, (newNotif) => {
+      setNotifications((prev) => [newNotif, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    });
+
+    return () => {
+      cleanupTapListener();
+      cleanupSocket();
+    };
+  }, [authToken, currentUser?._id]);
+
   if (authLoading) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -172,9 +256,25 @@ function VolunovaMobileApp() {
           </View>
         </View>
 
-        {/* Header Actions: Language & Logout */}
+        {/* Header Actions: Language, Notifications & Logout */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <MobileLanguagePicker />
+
+          {/* Real-time Notification Bell */}
+          <TouchableOpacity
+            onPress={() => setNotifModalVisible(true)}
+            accessibilityLabel={t('notifications.title')}
+            style={styles.notifBtn}
+          >
+            <Text style={styles.notifBtnIcon}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.badgeContainer}>
             <Text style={styles.badgeText}>🏅 {impactHours} {t('header.hoursSuffix')}</Text>
@@ -418,6 +518,16 @@ function VolunovaMobileApp() {
           </View>
         )}
       </ScrollView>
+
+      {/* Real-time Volunteer Notifications Modal */}
+      <NotificationsModal
+        visible={notifModalVisible}
+        onClose={() => setNotifModalVisible(false)}
+        notifications={notifications}
+        loading={loadingNotifications}
+        onMarkAllRead={handleMarkAllNotificationsRead}
+        onSelectMission={handleOpenMissionFromNotification}
+      />
     </SafeAreaView>
   );
 }
@@ -485,6 +595,39 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#60A5FA',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  notifBtn: {
+    position: 'relative',
+    backgroundColor: '#0F1A36',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#253761',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBtnIcon: {
+    fontSize: 15,
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#0A1224',
+  },
+  notifBadgeText: {
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
   },

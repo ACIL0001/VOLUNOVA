@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { Notification } from '../models';
+import { Notification, User } from '../models';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
@@ -57,6 +57,24 @@ router.patch('/:id/read', authenticateToken, async (req: AuthenticatedRequest, r
     }
 
     return res.json({ ok: true, data: notification });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+// POST /api/notifications/push-token
+router.post('/push-token', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { pushToken } = req.body;
+    if (!pushToken || typeof pushToken !== 'string') {
+      return res.status(400).json({ ok: false, error: { code: 'INVALID_TOKEN', message: 'pushToken string required' } });
+    }
+
+    await User.findByIdAndUpdate(req.user!.userId, {
+      $addToSet: { pushTokens: pushToken },
+    });
+
+    return res.json({ ok: true, message: 'Push token registered successfully' });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }

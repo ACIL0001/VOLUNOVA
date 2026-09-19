@@ -24,7 +24,19 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       }
     });
 
+    socket.on('user:join', (userId: string) => {
+      if (userId) {
+        socket.join(`user:${userId}`);
+      }
+    });
+
     socket.on('leave_user', (userId: string) => {
+      if (userId) {
+        socket.leave(`user:${userId}`);
+      }
+    });
+
+    socket.on('user:leave', (userId: string) => {
       if (userId) {
         socket.leave(`user:${userId}`);
       }

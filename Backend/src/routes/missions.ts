@@ -9,6 +9,7 @@ import { calculateMatchScore } from '../services/smartMatcher';
 import { logAuditEvent } from '../services/auditLogger';
 import { sendMissionAcceptedEmail } from '../services/emailService';
 import { emitToUser, emitToMission } from '../config/socket';
+import { sendExpoPushNotification } from '../services/pushNotifier';
 
 const router = Router();
 
@@ -410,7 +411,7 @@ router.post(
         return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Mission not found' } });
       }
 
-      const volunteer = await User.findById(volunteerId);
+      const volunteer = await User.findById(volunteerId).select('+pushTokens');
       if (!volunteer) {
         return res.status(404).json({ ok: false, error: { code: 'VOLUNTEER_NOT_FOUND', message: 'Volunteer not found' } });
       }
@@ -430,10 +431,24 @@ router.post(
         channel: 'in_app',
       });
 
-      // ⚡ Real-Time Socket.IO emit to volunteer
+      // ⚡ 1. Real-Time Socket.IO emit to volunteer (for in-app foreground header bell)
       emitToUser(volunteer._id, 'notification:new', {
         notification: notifDoc,
       });
+
+      // 📱 2. Mobile Phone Push Notification (for background / closed app / lockscreen)
+      if (volunteer.pushTokens && volunteer.pushTokens.length > 0) {
+        sendExpoPushNotification({
+          pushTokens: volunteer.pushTokens,
+          title: '🎉 Félicitations ! Vous avez été sélectionné(e)',
+          body: `L'organisation vous a sélectionné(e) pour le rôle "${need?.roleName || 'Bénévole'}" sur "${mission.title}". Touchez pour voir la mission.`,
+          data: {
+            missionId: mission._id.toString(),
+            needId: need?._id?.toString(),
+            type: 'mission_selected',
+          },
+        }).catch((err) => console.warn('[Invite Push Notification Error]:', err));
+      }
 
       return res.json({ ok: true, message: 'Invitation envoyée avec succès' });
     } catch (err: any) {
@@ -461,5 +476,63 @@ router.get('/:id/applicants', authenticateToken, requireRole(['organization', 'a
     return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
 });
+
+// PATCH /api/missions/:id/applications/:appId/select (Select an applicant)
+router.patch(
+  '/:id/applications/:appId/select',
+  authenticateToken,
+  requireRole(['organization', 'admin']),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: missionId, appId } = req.params;
+      const application = await Application.findOne({ _id: appId, missionId });
+      if (!application) {
+        return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Application not found' } });
+      }
+
+      application.status = 'accepted';
+      await application.save();
+
+      const mission = await Mission.findById(missionId);
+      const need = await MissionNeed.findById(application.needId);
+      const volunteer = await User.findById(application.volunteerId).select('+pushTokens');
+
+      if (volunteer) {
+        const notifDoc = await Notification.create({
+          userId: volunteer._id,
+          type: 'application_accepted',
+          payload: {
+            missionId,
+            needId: need?._id,
+            roleName: need?.roleName || 'Bénévole',
+            missionTitle: mission?.title || 'Mission',
+            message: `Félicitations ! Votre candidature pour "${need?.roleName || 'Bénévole'}" sur "${mission?.title}" a été acceptée par l'organisation.`,
+          },
+          channel: 'in_app',
+        });
+
+        // 1. ⚡ Socket.IO real-time delivery
+        emitToUser(volunteer._id, 'notification:new', { notification: notifDoc });
+
+        // 2. 📱 Phone Push notification
+        if (volunteer.pushTokens && volunteer.pushTokens.length > 0) {
+          sendExpoPushNotification({
+            pushTokens: volunteer.pushTokens,
+            title: '🎉 Candidature Acceptée !',
+            body: `Vous avez été sélectionné(e) pour "${need?.roleName || 'Bénévole'}" sur "${mission?.title}". Touchez pour voir les détails.`,
+            data: {
+              missionId: missionId.toString(),
+              type: 'mission_selected',
+            },
+          }).catch((err) => console.warn('[Select Push Notification Error]:', err));
+        }
+      }
+
+      return res.json({ ok: true, message: 'Candidat sélectionné avec succès', data: application });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    }
+  }
+);
 
 export default router;

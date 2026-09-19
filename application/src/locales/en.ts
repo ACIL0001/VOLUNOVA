@@ -81,4 +81,11 @@ export const en = {
     saveSkills: 'Confirm My Skills',
     demoFastLogin: '⚡ Fast Demo: Log in as Ahmed Benali',
   },
+  notifications: {
+    title: 'Notifications',
+    empty: 'No notifications at this time',
+    markAllRead: 'Mark all as read',
+    viewMission: 'View Mission & Confirm',
+    selectedBadge: 'Selected',
+  },
 };

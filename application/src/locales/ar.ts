@@ -82,4 +82,11 @@ export const ar = {
     saveSkills: 'تأكيد المهارات المختارة',
     demoFastLogin: '⚡ تجربة سريعة: الدخول المباشر بحساب أحمد بن علي',
   },
+  notifications: {
+    title: 'الإشعارات والتنبيهات',
+    empty: 'لا توجد إشعارات جديدة حالياً',
+    markAllRead: 'تحديد الكل كمقروء',
+    viewMission: 'عرض المبادرة وتأكيد المشاركة',
+    selectedBadge: 'تم اختيارك للمهمة',
+  },
 };

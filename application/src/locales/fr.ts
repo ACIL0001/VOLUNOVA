@@ -81,4 +81,11 @@ export const fr = {
     saveSkills: 'Confirmer mes compétences',
     demoFastLogin: '⚡ Démo rapide : Se connecter comme Ahmed Benali',
   },
+  notifications: {
+    title: 'Notifications',
+    empty: 'Aucune notification pour le moment',
+    markAllRead: 'Tout marquer comme lu',
+    viewMission: 'Voir la mission & Confirmer',
+    selectedBadge: 'Sélectionné(e)',
+  },
 };

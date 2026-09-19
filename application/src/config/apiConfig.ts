@@ -54,3 +54,7 @@ export function getBackendUrl(): string {
   // 3. For physical mobile devices on Wi-Fi (Expo Go on iPhone & Android)
   return `http://${DEFAULT_LAN_IP}:${BACKEND_PORT}/api`;
 }
+
+export function getSocketUrl(): string {
+  return getBackendUrl().replace(/\/api$/, '');
+}
