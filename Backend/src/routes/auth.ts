@@ -37,6 +37,17 @@ router.post(
     try {
       const { name, email, password, role, skills, city, phone, orgName, category } = req.body;
 
+      // Ensure volunteers provide at least one valid skill
+      if (role === 'volunteer' && (!skills || !Array.isArray(skills) || skills.filter((s: any) => typeof s === 'string' && s.trim().length > 0).length === 0)) {
+        return res.status(400).json({
+          ok: false,
+          error: {
+            code: 'SKILLS_REQUIRED',
+            message: 'Au moins une compétence est requise pour créer un profil bénévole.',
+          },
+        });
+      }
+
       const existing = await User.findOne({ email });
       if (existing) {
         return res.status(409).json({
@@ -48,12 +59,16 @@ router.post(
       const salt = await bcrypt.genSalt(12);
       const passwordHash = await bcrypt.hash(password, salt);
 
+      const cleanedSkills = Array.isArray(skills)
+        ? Array.from(new Set(skills.map((s: string) => String(s).trim()).filter(Boolean)))
+        : [];
+
       const user = await User.create({
         name,
         email,
         passwordHash,
         role,
-        skills: skills || (role === 'volunteer' ? ['General Support'] : []),
+        skills: role === 'volunteer' ? cleanedSkills : [],
         city: city || 'Algiers',
         phone: phone || '',
       });

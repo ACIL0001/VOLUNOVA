@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles,
@@ -22,6 +22,8 @@ import {
   MapPin,
   Flame,
   Edit3,
+  Search,
+  Check,
 } from 'lucide-react';
 import { api, ExtractedNeedsResponse } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
@@ -48,12 +50,30 @@ export default function CreateMissionPage() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Registered Skills State
+  const [registeredSkills, setRegisteredSkills] = useState<any[]>([]);
+  const [loadingSkills, setLoadingSkills] = useState(true);
+  const [skillSearch, setSkillSearch] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
   // Route guard: only authenticated users can access the creation studio
-  React.useEffect(() => {
+  useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
+
+  // Fetch real registered volunteer skills from platform
+  useEffect(() => {
+    api.getRegisteredSkills()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setRegisteredSkills(data);
+        }
+      })
+      .catch((err) => console.warn('Could not load registered volunteer skills:', err))
+      .finally(() => setLoadingSkills(false));
+  }, []);
 
   const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
 
@@ -106,6 +126,65 @@ export default function CreateMissionPage() {
     });
   };
 
+  const toggleSkill = (skillId: string) => {
+    setSelectedSkills((prev) =>
+      prev.includes(skillId) ? prev.filter((id) => id !== skillId) : [...prev, skillId]
+    );
+  };
+
+  const handleInjectInPrompt = () => {
+    if (selectedSkills.length === 0) return;
+    const names = selectedSkills.map((id) => {
+      const s = registeredSkills.find((item) => item.id === id);
+      return s ? (locale === 'ar' ? s.nameAr : locale === 'fr' ? s.nameFr : s.nameEn) : id;
+    });
+    const addition = ` Besoin de bénévoles en : ${names.join(', ')}.`;
+    setPrompt((prev) => (prev ? prev + addition : addition.trim()));
+  };
+
+  const handleAddSelectedToNeeds = () => {
+    if (selectedSkills.length === 0) return;
+    const newNeeds = selectedSkills.map((id) => {
+      const s = registeredSkills.find((item) => item.id === id);
+      const roleTitle = s ? (locale === 'ar' ? s.nameAr : s.nameFr) : id;
+      const icon = s?.icon || 'sparkles';
+      return {
+        roleName: roleTitle,
+        skillTag: s?.nameFr || id,
+        icon,
+        quantityNeeded: 2,
+      };
+    });
+
+    if (!extractedData) {
+      setExtractedData({
+        title: 'Nouvelle Mission de Solidarité',
+        category: 'Humanitarian',
+        urgency: 'medium',
+        venue: 'Alger',
+        suggestedHoursPerPerson: 4,
+        needs: newNeeds,
+      });
+    } else {
+      setExtractedData({
+        ...extractedData,
+        needs: [...extractedData.needs, ...newNeeds],
+      });
+    }
+  };
+
+  const filteredSkills = registeredSkills.filter((s) => {
+    const q = skillSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (s.nameFr && s.nameFr.toLowerCase().includes(q)) ||
+      (s.nameEn && s.nameEn.toLowerCase().includes(q)) ||
+      (s.nameAr && s.nameAr.includes(q)) ||
+      (s.category && s.category.toLowerCase().includes(q)) ||
+      s.id.toLowerCase().includes(q)
+    );
+  });
+
   const handlePublish = async () => {
     if (!extractedData) return;
     setPublishing(true);
@@ -144,6 +223,7 @@ export default function CreateMissionPage() {
         </div>
       )}
 
+      {/* AI Prompt Box */}
       <div className="surface-panel rounded-xl p-6 sm:p-8 mb-8">
         <label className="block text-sm font-semibold text-[#0b1f3a] mb-2">
           {t('create_mission.prompt_label')}
@@ -184,6 +264,104 @@ export default function CreateMissionPage() {
             {extracting ? t('create_mission.extracting') : t('create_mission.extract_btn')}
           </button>
         </div>
+      </div>
+
+      {/* Dynamic Registered Volunteer Skills Explorer Panel */}
+      <div className="surface-panel rounded-xl p-6 sm:p-8 mb-8 border border-[#d8e0ea] bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base font-bold text-[#0b1f3a] flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e6f4f2] text-[#0d7a6f] text-xs">
+                🎯
+              </span>
+              {t('create_mission.registered_skills_title')}
+            </h3>
+            <p className="text-xs text-[#5b6b7c] mt-0.5">
+              {t('create_mission.registered_skills_subtitle')}
+            </p>
+          </div>
+
+          {/* Live Search Input for Skills */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#8fa0b3]" />
+            <input
+              type="text"
+              value={skillSearch}
+              onChange={(e) => setSkillSearch(e.target.value)}
+              placeholder={t('create_mission.search_skills_placeholder')}
+              className="w-full rounded-lg border border-[#d8e0ea] bg-[#f8fafc] pl-8 pr-3 py-1.5 text-xs text-[#0b1f3a] placeholder:text-[#8fa0b3] focus:border-[#0d7a6f] focus:outline-none focus:bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Skills Chips Grid */}
+        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-1">
+          {filteredSkills.map((skill) => {
+            const isSelected = selectedSkills.includes(skill.id);
+            const IconComp = ICON_MAP[skill.icon] || Sparkles;
+            const label = locale === 'ar' ? skill.nameAr : locale === 'fr' ? skill.nameFr : skill.nameEn;
+
+            return (
+              <button
+                key={skill.id}
+                type="button"
+                onClick={() => toggleSkill(skill.id)}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all border ${
+                  isSelected
+                    ? 'bg-[#0d7a6f] text-white border-[#0d7a6f] shadow-sm'
+                    : 'bg-[#f8fafc] text-[#0b1f3a] border-[#d8e0ea] hover:border-[#0d7a6f] hover:bg-[#e6f4f2]/40'
+                }`}
+              >
+                <IconComp className={`h-3.5 w-3.5 ${isSelected ? 'text-white' : 'text-[#0d7a6f]'}`} />
+                <span>{label}</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    isSelected
+                      ? 'bg-white/20 text-white'
+                      : skill.volunteerCount > 0
+                      ? 'bg-[#e6f4f2] text-[#0d7a6f]'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {skill.volunteerCount} {t('create_mission.volunteers_count')}
+                </span>
+                {isSelected && <Check className="h-3.5 w-3.5 ml-0.5 text-white" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Action Buttons when skills are selected */}
+        {selectedSkills.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[#d8e0ea] flex flex-wrap items-center justify-between gap-2 animate-fade-up">
+            <span className="text-xs font-medium text-[#0d7a6f]">
+              ✓ {selectedSkills.length} compétence(s) sélectionnée(s)
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleInjectInPrompt}
+                className="rounded-lg border border-[#d8e0ea] bg-white px-3 py-1.5 text-xs font-semibold text-[#0b1f3a] hover:border-[#0d7a6f] hover:text-[#0d7a6f] transition-colors"
+              >
+                {t('create_mission.inject_in_prompt')}
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSelectedToNeeds}
+                className="btn-primary rounded-lg px-3.5 py-1.5 text-xs font-semibold"
+              >
+                {t('create_mission.add_selected_to_needs')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSkills([])}
+                className="text-xs text-[#8fa0b3] hover:text-red-600 px-2 py-1"
+              >
+                {t('create_mission.deselect_all')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {extractedData && (
@@ -256,9 +434,36 @@ export default function CreateMissionPage() {
                       </button>
                     </div>
                     <h4 className="text-sm font-semibold text-[#0b1f3a] mb-1.5">{need.roleName}</h4>
-                    <div className="inline-block rounded-md bg-white border border-[#d8e0ea] px-2.5 py-0.5 text-[11px] font-semibold text-[#5b6b7c] mb-2">
-                      {t('create_mission.skill_label')}: {need.skillTag}
+                    
+                    {/* Selectable Skill Dropdown Linked to Platform Pool */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-[11px] font-semibold text-[#5b6b7c]">
+                        {t('create_mission.skill_label')}:
+                      </span>
+                      <select
+                        value={need.skillTag}
+                        onChange={(e) => {
+                          const updated = [...extractedData.needs];
+                          updated[index].skillTag = e.target.value;
+                          const found = registeredSkills.find((s) => s.nameFr === e.target.value || s.id === e.target.value);
+                          if (found?.icon) {
+                            updated[index].icon = found.icon;
+                          }
+                          setExtractedData({ ...extractedData, needs: updated });
+                        }}
+                        className="rounded-md bg-white border border-[#d8e0ea] px-2 py-0.5 text-[11px] font-semibold text-[#0b1f3a] focus:outline-none focus:border-[#0d7a6f]"
+                      >
+                        {registeredSkills.map((s) => (
+                          <option key={s.id} value={s.nameFr}>
+                            {locale === 'ar' ? s.nameAr : s.nameFr} ({s.volunteerCount} {t('create_mission.volunteers_count')})
+                          </option>
+                        ))}
+                        {!registeredSkills.some((s) => s.nameFr === need.skillTag) && (
+                          <option value={need.skillTag}>{need.skillTag}</option>
+                        )}
+                      </select>
                     </div>
+
                     {need.equipmentRequired && (
                       <p className="text-[11px] text-[#5b6b7c] mb-2">
                         {t('create_mission.equipment_label')}: {need.equipmentRequired}

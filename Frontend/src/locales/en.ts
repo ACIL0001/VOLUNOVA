@@ -102,6 +102,13 @@ export const en = {
     error_empty: 'Please write an initiative description first or select one of the preset templates.',
     error_extract: 'Failed to extract requirements via AI. Make sure the backend server is running on port 5000.',
     error_publish: 'Failed to publish mission. Check backend connection.',
+    registered_skills_title: 'Registered Volunteers Skill Pool',
+    registered_skills_subtitle: 'Select verified skills from active volunteers to target your mission needs:',
+    search_skills_placeholder: 'Search skills (e.g. web, masonry, first aid...)',
+    add_selected_to_needs: '+ Add to required roles',
+    inject_in_prompt: '🪄 Insert into AI description',
+    volunteers_count: 'volunteers',
+    deselect_all: 'Deselect all',
   },
   browse: {
     badge: 'Public Mission Directory',

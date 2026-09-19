@@ -276,6 +276,20 @@ class ApiService {
       body: JSON.stringify({ volunteerId, needId }),
     });
   }
+
+  // 7. Skills
+  async getRegisteredSkills(): Promise<{
+    id: string;
+    name: string;
+    nameFr: string;
+    nameEn: string;
+    nameAr: string;
+    category: string;
+    icon: string;
+    volunteerCount: number;
+  }[]> {
+    return this.request<any[]>('/skills');
+  }
 }
 
 export const api = new ApiService();

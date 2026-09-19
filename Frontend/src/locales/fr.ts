@@ -102,6 +102,13 @@ export const fr = {
     error_empty: 'Veuillez saisir une description ou choisir l\'un des modèles proposés.',
     error_extract: 'Échec de l\'analyse IA. Assurez-vous que le serveur backend est en marche.',
     error_publish: 'Échec de la publication de la mission. Vérifiez le serveur.',
+    registered_skills_title: 'Vivier des compétences de nos bénévoles inscrits',
+    registered_skills_subtitle: 'Sélectionnez des compétences réelles présentes sur la plateforme pour cibler vos besoins :',
+    search_skills_placeholder: 'Rechercher une compétence (ex: web, maçonnerie, secours...)',
+    add_selected_to_needs: '+ Ajouter aux rôles requis',
+    inject_in_prompt: '🪄 Insérer dans la description IA',
+    volunteers_count: 'bénévoles',
+    deselect_all: 'Désélectionner tout',
   },
   browse: {
     badge: 'Répertoire Public des Missions',

@@ -30,7 +30,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [city, setCity] = useState('Algiers');
-  const [skills, setSkills] = useState<string[]>(['Graphic Design', 'Photography']);
+  const [skills, setSkills] = useState<string[]>([]);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
 
   const toggleSkill = (skillId: string) => {
@@ -88,9 +88,19 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       return;
     }
 
-    if (tab === 'signup' && !name) {
-      Alert.alert('Nom requis', 'Veuillez saisir votre nom complet.');
-      return;
+    if (tab === 'signup') {
+      if (!name.trim()) {
+        Alert.alert(t('auth.nameLabel'), 'Veuillez saisir votre nom complet.');
+        return;
+      }
+      if (!skills || skills.length === 0) {
+        Alert.alert(
+          t('auth.skillsRequiredTitle'),
+          t('auth.skillsRequiredMessage')
+        );
+        setShowSkillPicker(true);
+        return;
+      }
     }
 
     setLoading(true);
@@ -238,34 +248,57 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 />
               </View>
 
-              {/* Skills Selector Button */}
+              {/* Skills Selector Button (Mandatory for Volunteers) */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { textAlign }]}>{t('auth.skillsLabel')}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.label, { textAlign }]}>{t('auth.skillsLabel')}</Text>
+                  <Text style={[styles.requiredBadge, skills.length > 0 ? styles.badgeDone : styles.badgeReq]}>
+                    {skills.length > 0 ? `✓ ${skills.length} ${t('auth.selectedCount')}` : `* ${t('auth.skillsRequiredBadge')}`}
+                  </Text>
+                </View>
+
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setShowSkillPicker(true)}
-                  style={styles.skillSelectorTrigger}
+                  style={[
+                    styles.skillSelectorTrigger,
+                    skills.length > 0 ? styles.skillSelectorTriggerFilled : styles.skillSelectorTriggerEmpty,
+                  ]}
                 >
-                  <Text style={styles.skillSelectorText}>
+                  <Text
+                    style={[
+                      styles.skillSelectorText,
+                      skills.length > 0 ? styles.skillSelectorTextFilled : styles.skillSelectorTextEmpty,
+                    ]}
+                  >
                     {skills.length > 0
-                      ? `✓ ${skills.length} ${t('auth.skillsLabel').toLowerCase()}`
-                      : t('auth.selectSkillsBtn')}
+                      ? `✓ ${skills.length} ${t('auth.selectedCount')}`
+                      : `⚠️ ${t('auth.selectSkillsBtn')}`}
                   </Text>
-                  <Text style={styles.editIcon}>⚙️</Text>
+                  <Text style={styles.editIcon}>{skills.length > 0 ? '✏️' : '👉'}</Text>
                 </TouchableOpacity>
 
-                <View style={styles.skillPreviewChips}>
-                  {skills.map((s) => {
-                    const found = AVAILABLE_SKILLS.find((o) => o.id === s);
-                    return (
-                      <View key={s} style={styles.miniChip}>
-                        <Text style={styles.miniChipText}>
-                          {found ? `${found.icon} ${found.id}` : s}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
+                {skills.length > 0 && (
+                  <View style={styles.skillPreviewChips}>
+                    {skills.map((s) => {
+                      const found = AVAILABLE_SKILLS.find((o) => o.id === s || o.nameFr === s || o.nameEn === s);
+                      const label = found
+                        ? locale === 'ar'
+                          ? found.nameAr
+                          : locale === 'fr'
+                          ? found.nameFr
+                          : found.nameEn
+                        : s;
+                      return (
+                        <View key={s} style={styles.miniChip}>
+                          <Text style={styles.miniChipText}>
+                            {found ? `${found.icon} ${label}` : s}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </>
           )}
@@ -414,17 +447,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0E1833',
-    borderWidth: 1,
-    borderColor: '#2563EB',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    borderWidth: 1.5,
+  },
+  skillSelectorTriggerEmpty: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: '#EF4444',
+  },
+  skillSelectorTriggerFilled: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: '#10B981',
   },
   skillSelectorText: {
-    color: '#38BDF8',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  skillSelectorTextEmpty: {
+    color: '#F87171',
+  },
+  skillSelectorTextFilled: {
+    color: '#34D399',
+  },
+  requiredBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  badgeReq: {
+    color: '#F87171',
+  },
+  badgeDone: {
+    color: '#34D399',
   },
   editIcon: {
     fontSize: 14,
