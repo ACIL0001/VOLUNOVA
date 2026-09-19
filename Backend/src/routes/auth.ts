@@ -7,6 +7,7 @@ import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { logAuditEvent } from '../services/auditLogger';
+import { normalizeSkillToBracketFormat } from '../services/skillsService';
 
 const router = Router();
 export const getJwtSecret = () => process.env.JWT_SECRET || 'volunova_jwt_fallback_secret_key_2026';
@@ -60,7 +61,7 @@ router.post(
       const passwordHash = await bcrypt.hash(password, salt);
 
       const cleanedSkills = Array.isArray(skills)
-        ? Array.from(new Set(skills.map((s: string) => String(s).trim()).filter(Boolean)))
+        ? Array.from(new Set(skills.map((s: string) => normalizeSkillToBracketFormat(String(s).trim())).filter(Boolean)))
         : [];
 
       const user = await User.create({
@@ -209,6 +210,97 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
           id: user._id,
           name: user.name,
           email: user.email,
+          phone: user.phone || '',
+          role: user.role,
+          avatar: user.avatar,
+          city: user.city,
+          skills: user.skills,
+          impactHours: user.impactHours,
+          reliabilityScore: user.reliabilityScore,
+          bio: user.bio,
+          createdAt: user.createdAt,
+        },
+        organization,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+// PATCH /api/auth/profile — Update volunteer or organization profile
+router.patch('/profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Utilisateur introuvable' } });
+    }
+
+    const {
+      name,
+      city,
+      phone,
+      bio,
+      skills,
+      orgName,
+      category,
+      description,
+      orgEmail,
+      orgPhone,
+      address,
+      website,
+      logo,
+    } = req.body;
+
+    // Update common user fields
+    if (typeof name === 'string' && name.trim()) user.name = name.trim();
+    if (typeof city === 'string') user.city = city.trim();
+    if (typeof phone === 'string') user.phone = phone.trim();
+    if (typeof bio === 'string') user.bio = bio.trim();
+
+    // If volunteer, update skills
+    if (user.role === 'volunteer' && Array.isArray(skills)) {
+      user.skills = Array.from(new Set(skills.map((s: any) => normalizeSkillToBracketFormat(String(s).trim())).filter(Boolean)));
+    }
+
+    await user.save();
+
+    let organization = null;
+    if (user.role === 'organization') {
+      let org = await Organization.findOne({ userId });
+      if (!org) {
+        org = new Organization({
+          userId: user._id,
+          name: orgName || user.name,
+          category: category || 'Community Impact',
+        });
+      }
+
+      if (typeof orgName === 'string' && orgName.trim()) org.name = orgName.trim();
+      if (typeof category === 'string' && category.trim()) org.category = category.trim();
+      if (typeof description === 'string') org.description = description.trim();
+      if (typeof orgEmail === 'string') org.email = orgEmail.trim().toLowerCase();
+      if (typeof orgPhone === 'string') org.phone = orgPhone.trim();
+      if (typeof address === 'string') org.address = address.trim();
+      if (typeof city === 'string') org.city = city.trim();
+      if (typeof website === 'string') org.website = website.trim();
+      if (typeof logo === 'string') org.logo = logo.trim();
+
+      await org.save();
+      organization = org;
+    }
+
+    await logAuditEvent('user.profile_updated', String(userId), { role: user.role });
+
+    return res.json({
+      ok: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
           role: user.role,
           avatar: user.avatar,
           city: user.city,

@@ -10,7 +10,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  LogBox,
 } from 'react-native';
+
+LogBox.ignoreLogs([
+  'Cannot connect to Expo CLI',
+  'Disconnected from Metro',
+  'Bundle Splitting – Metro disconnected',
+]);
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -28,6 +35,7 @@ import {
   Sparkles,
   TreePine,
   Users,
+  User as UserIcon,
   Zap,
 } from 'lucide-react-native';
 import { LanguageProvider, useTranslation } from './src/context/LanguageContext';
@@ -37,6 +45,7 @@ import { AVAILABLE_SKILLS } from './src/components/SkillPickerModal';
 import NotificationsModal, { MobileNotification } from './src/components/NotificationsModal';
 import MissionCard, { fillPercent, localizeCategory } from './src/components/MissionCard';
 import MissionOpsSheet from './src/components/MissionOpsSheet';
+import VolunteerProfileView from './src/components/VolunteerProfileView';
 import { CivicBadge, CivicCard, CivicProgress, PrimaryButton } from './src/components/ui/Civic';
 import { subscribeVolunteerNotifications } from './src/services/mobileSocket';
 import {
@@ -56,7 +65,7 @@ function VolunovaMobileApp() {
   const { pad, contentMaxWidth, logoHeight, tabBarHeight, columns, compact, isPhone } =
     useResponsive();
 
-  const [activeTab, setActiveTab] = useState<'matched' | 'browse' | 'passport'>('matched');
+  const [activeTab, setActiveTab] = useState<'matched' | 'browse' | 'passport' | 'profile'>('matched');
   const [joiningNeedId, setJoiningNeedId] = useState<string | null>(null);
   const [joinedNeedIds, setJoinedNeedIds] = useState<string[]>([]);
   const [impactHours, setImpactHours] = useState(0);
@@ -104,6 +113,7 @@ function VolunovaMobileApp() {
           setAuthToken(token);
           setCurrentUser({ ...u, _id: u._id || u.id });
           if (u.impactHours !== undefined) setImpactHours(u.impactHours);
+          fetchMyApplications(token);
         }
       } catch (e) {
         console.error('Session restore error:', e);
@@ -113,6 +123,21 @@ function VolunovaMobileApp() {
     }
     loadSession();
   }, []);
+
+  const fetchMyApplications = async (token: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/missions/my-applications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.data)) {
+        const needIds = data.data.map((app: any) => app.needId).filter(Boolean);
+        setJoinedNeedIds(needIds);
+      }
+    } catch (e) {
+      console.warn('Could not fetch user applications:', e);
+    }
+  };
 
   const fetchMissions = async () => {
     setLoadingMissions(true);
@@ -185,7 +210,13 @@ function VolunovaMobileApp() {
         setImpactHours((prev) => prev + hours);
         fetchMissions();
         fetchStats();
-        Alert.alert(t('alerts.congrats'), t('alerts.joinedMessage'));
+        const joinedMissionItem = missions.find((m) => m._id === targetMissionId);
+        const missionTitle = joinedMissionItem?.title || 'Mission';
+        const successMsg =
+          locale === 'ar'
+            ? `تم تأكيد تسجيلك في مهمة "${missionTitle}" بنجاح! +${hours} ساعات أثر موثقة.`
+            : `Votre inscription à la mission "${missionTitle}" est validée ! +${hours} heures certifiées.`;
+        Alert.alert(t('alerts.congrats'), successMsg);
       } else {
         Alert.alert('Information', data.error?.message || 'Ce créneau est déjà pourvu.');
       }
@@ -258,6 +289,7 @@ function VolunovaMobileApp() {
   useEffect(() => {
     if (!authToken || !currentUser?._id) return;
     fetchNotifications();
+    fetchMyApplications(authToken);
     registerPushNotifications(authToken);
 
     const cleanupTapListener = setupPushNotificationTapListener((missionId) => {
@@ -310,6 +342,7 @@ function VolunovaMobileApp() {
             setCurrentUser({ ...user, _id: user._id || user.id });
             setAuthToken(token);
             if (user.impactHours !== undefined) setImpactHours(user.impactHours);
+            fetchMyApplications(token);
           }}
         />
       </SafeAreaView>
@@ -337,16 +370,70 @@ function VolunovaMobileApp() {
     return matchesCat && matchesSearch;
   });
 
-  const matchedMission = missions[0];
-  const primaryNeed = matchedMission?.needs?.[0];
+  const userSkills: string[] = currentUser?.skills || [];
+
+  // Intelligently compute the best matching mission based on the volunteer's registered skills
+  let matchedMission: any = null;
+  let primaryNeed: any = null;
+  let matchScoreVal = 0;
+
+  if (missions.length > 0) {
+    if (userSkills.length > 0) {
+      let maxScore = -1;
+      for (const m of missions) {
+        if (!m.needs || m.needs.length === 0) continue;
+        for (const need of m.needs) {
+          const tSkill = (need.skillTag || '').toLowerCase().trim();
+          const tParts = tSkill.match(/^([^(]+)\s*\((.+)\)$/);
+          const tCat = tParts ? tParts[1].trim().toLowerCase() : tSkill;
+          const tRaw = tParts ? tParts[2].trim().toLowerCase() : tSkill;
+
+          for (const s of userSkills) {
+            const uNorm = (s || '').toLowerCase().trim();
+            const uParts = uNorm.match(/^([^(]+)\s*\((.+)\)$/);
+            const uCat = uParts ? uParts[1].trim().toLowerCase() : uNorm;
+            const uRaw = uParts ? uParts[2].trim().toLowerCase() : uNorm;
+
+            let score = 0;
+            if (uNorm === tSkill) score = 96;
+            else if (uCat === tCat && tCat.length > 2) score = 90;
+            else if (uRaw === tRaw || uNorm.includes(tRaw) || tRaw.includes(uNorm)) score = 85;
+            else if (uNorm.includes(tCat) || tCat.includes(uNorm)) score = 75;
+
+            if (score > maxScore) {
+              maxScore = score;
+              matchedMission = m;
+              primaryNeed = need;
+              matchScoreVal = score;
+            }
+          }
+        }
+      }
+      if (maxScore < 50) {
+        matchedMission = null;
+        primaryNeed = null;
+        matchScoreVal = 0;
+      }
+    } else {
+      matchedMission = null;
+      primaryNeed = null;
+      matchScoreVal = 0;
+    }
+  }
+
   const matchedPct = matchedMission ? fillPercent(matchedMission) : 0;
   const matchedJoined = primaryNeed ? joinedNeedIds.includes(primaryNeed._id) : false;
 
+  const earnedBadgesCount =
+    (impactHours >= 10 ? 1 : 0) +
+    (impactHours >= 25 ? 1 : 0) +
+    (impactHours >= 50 ? 1 : 0);
+
   const impactItems = [
-    { icon: TreePine, value: `${stats.treesPlanted.toLocaleString()}+`, label: t('impact.trees') },
-    { icon: Clock, value: stats.totalImpactHours.toLocaleString(), label: t('impact.hours') },
-    { icon: Users, value: `${stats.volunteersMobilized.toLocaleString()}+`, label: t('impact.volunteers') },
-    { icon: Zap, value: `${stats.fillRatePercentage}%`, label: t('impact.fill_rate') },
+    { icon: Clock, value: `${impactHours}h`, label: t('impact.userHours') },
+    { icon: Compass, value: `${joinedNeedIds.length}`, label: t('impact.userMissions') },
+    { icon: Sparkles, value: `${userSkills.length}`, label: t('impact.userSkills') },
+    { icon: Award, value: `${earnedBadgesCount}`, label: t('impact.userBadges') },
   ];
 
   return (
@@ -461,7 +548,19 @@ function VolunovaMobileApp() {
                 <Sparkles size={16} color={civic.teal} />
                 <Text style={[styles.bannerTitle, { textAlign }]}>{t('match.bannerTitle')}</Text>
               </View>
-              <Text style={[styles.bannerDesc, { textAlign }]}>{t('match.bannerDesc')}</Text>
+              <Text style={[styles.bannerDesc, { textAlign }]}>
+                {matchedMission && userSkills.length > 0
+                  ? locale === 'ar'
+                    ? `تم التوجيه الذكي للمهمة بناءً على مهاراتك في: ${userSkills[0]}`
+                    : `Mission sélectionnée selon vos compétences en : ${userSkills[0]}`
+                  : userSkills.length > 0
+                  ? locale === 'ar'
+                    ? 'لم تتوفر مهمة تطابق مهاراتك حالياً. سنخبرك فور توفر احتياج مناسب.'
+                    : 'Aucune mission ne correspond à vos compétences pour le moment.'
+                  : locale === 'ar'
+                  ? 'أضف مهاراتك في ملفك الشخصي لتلقي فرص تطوعية موجهة بدقة.'
+                  : 'Ajoutez vos compétences pour recevoir des missions ciblées par l’IA.'}
+              </Text>
             </View>
 
             {matchedMission ? (
@@ -470,12 +569,12 @@ function VolunovaMobileApp() {
                   <CivicBadge label={localizeCategory(matchedMission.category, t)} />
                   <View style={[styles.matchScore, { flexDirection }]}>
                     <Sparkles size={12} color={civic.teal} />
-                    <Text style={styles.matchScoreText}>98% {t('ops.match_score')}</Text>
+                    <Text style={styles.matchScoreText}>{matchScoreVal}% {t('ops.match_score')}</Text>
                   </View>
                 </View>
                 <Text style={[styles.missionTitle, { textAlign }]}>{matchedMission.title}</Text>
                 <Text style={[styles.missionOrg, { textAlign }]}>
-                  {matchedMission.orgId?.name || 'Association Citoyenne'}
+                  {matchedMission.orgId?.name || t('missions.verifiedOrg')}
                 </Text>
                 <View style={styles.detailBox}>
                   {primaryNeed && (
@@ -532,10 +631,18 @@ function VolunovaMobileApp() {
               <CivicCard style={{ alignItems: 'center', paddingVertical: 28 }}>
                 <Compass size={32} color={civic.borderHover} />
                 <Text style={[styles.missionTitle, { textAlign: 'center', marginTop: 10 }]}>
-                  {t('browse.no_results_title')}
+                  {locale === 'ar'
+                    ? 'لا توجد مهمة مطابقة لمهاراتك حالياً'
+                    : 'Aucune mission ciblée pour le moment'}
                 </Text>
-                <Text style={[styles.emptyDesc, { textAlign: 'center' }]}>
-                  {t('browse.no_results_desc')}
+                <Text style={[styles.emptyDesc, { textAlign: 'center', marginTop: 4 }]}>
+                  {userSkills.length === 0
+                    ? locale === 'ar'
+                      ? 'سجل مهاراتك من تبويب الملف الشخصي للحصول على مطابقة ذكية.'
+                      : 'Enregistrez vos compétences depuis votre profil pour recevoir des suggestions.'
+                    : locale === 'ar'
+                    ? 'ستصلك إشعارات فورية بمجرد نشر مهمة تتطلب كفاءاتك.'
+                    : 'Vous serez notifié dès qu’une association publiera un besoin correspondant.'}
                 </Text>
               </CivicCard>
             )}
@@ -551,21 +658,18 @@ function VolunovaMobileApp() {
                     return (
                       <View key={s} style={styles.skillChip}>
                         <Text style={styles.skillText}>
-                          {opt ? `${opt.icon} ` : ''}
+                          {opt ? `${opt.icon} ` : '🎯 '}
                           {label}
                         </Text>
                       </View>
                     );
                   })
                 ) : (
-                  <>
-                    <View style={styles.skillChip}>
-                      <Text style={styles.skillText}>{t('match.skillDesign')}</Text>
-                    </View>
-                    <View style={styles.skillChip}>
-                      <Text style={styles.skillText}>{t('match.skillPhoto')}</Text>
-                    </View>
-                  </>
+                  <Text style={[styles.emptyDesc, { paddingVertical: 4 }]}>
+                    {locale === 'ar'
+                      ? 'لم تقم بتسجيل أي مهارات بعد.'
+                      : 'Aucune compétence enregistrée pour le moment.'}
+                  </Text>
                 )}
               </View>
             </CivicCard>
@@ -649,24 +753,72 @@ function VolunovaMobileApp() {
             <View style={styles.qrBox}>
               <QrCode size={42} color={civic.teal} />
               <Text style={styles.qrTitle}>{t('passport.qrTitle')}</Text>
-              <Text style={styles.qrId}>{t('passport.qrId')}</Text>
+              <Text style={styles.qrId}>
+                ID: VOL-DZ-{(currentUser?._id || currentUser?.id || 'USER').toString().slice(-6).toUpperCase()}
+              </Text>
+              <Text style={[styles.userName, { textAlign: 'center', marginTop: 6, fontSize: 15 }]}>
+                {currentUser?.name || ''}
+              </Text>
             </View>
             <Text style={[styles.sectionHeader, { textAlign }]}>{t('passport.badgesHeader')}</Text>
-            <View style={styles.badgesGrid}>
-              <View style={styles.badgeCard}>
-                <TreePine size={22} color={civic.teal} />
-                <Text style={styles.badgeName}>{t('passport.badgeEco')}</Text>
+            {impactHours > 0 ? (
+              <View style={styles.badgesGrid}>
+                {impactHours >= 10 && (
+                  <View style={styles.badgeCard}>
+                    <TreePine size={22} color={civic.teal} />
+                    <Text style={styles.badgeName}>{t('passport.badgeEco')}</Text>
+                  </View>
+                )}
+                {impactHours >= 25 && (
+                  <View style={styles.badgeCard}>
+                    <Award size={22} color={civic.teal} />
+                    <Text style={styles.badgeName}>{t('passport.badgeCivic')}</Text>
+                  </View>
+                )}
+                {impactHours >= 50 && (
+                  <View style={styles.badgeCard}>
+                    <Zap size={22} color={civic.teal} />
+                    <Text style={styles.badgeName}>{t('passport.badgeLeader')}</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.badgeCard}>
-                <Palette size={22} color={civic.teal} />
-                <Text style={styles.badgeName}>{t('passport.badgeArt')}</Text>
+            ) : (
+              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={[styles.emptyDesc, { textAlign: 'center' }]}>
+                  {t('passport.noBadges')}
+                </Text>
+                <View style={[styles.badgesGrid, { opacity: 0.4, marginTop: 12 }]}>
+                  <View style={styles.badgeCard}>
+                    <Text style={{ fontSize: 16 }}>🔒</Text>
+                    <Text style={styles.badgeName}>{t('passport.badgeEco')}</Text>
+                  </View>
+                  <View style={styles.badgeCard}>
+                    <Text style={{ fontSize: 16 }}>🔒</Text>
+                    <Text style={styles.badgeName}>{t('passport.badgeCivic')}</Text>
+                  </View>
+                  <View style={styles.badgeCard}>
+                    <Text style={{ fontSize: 16 }}>🔒</Text>
+                    <Text style={styles.badgeName}>{t('passport.badgeLeader')}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.badgeCard}>
-                <Zap size={22} color={civic.teal} />
-                <Text style={styles.badgeName}>{t('passport.badgeSpeed')}</Text>
-              </View>
-            </View>
+            )}
           </CivicCard>
+        )}
+
+        {activeTab === 'profile' && (
+          <VolunteerProfileView
+            user={currentUser}
+            token={authToken}
+            impactHours={impactHours}
+            t={t}
+            locale={locale}
+            isRTL={isRTL}
+            textAlign={textAlign}
+            onUpdateUser={(updated) => setCurrentUser(updated)}
+            onLogout={handleLogout}
+            onOpenPassport={() => setActiveTab('passport')}
+          />
         )}
       </ScrollView>
 
@@ -676,6 +828,7 @@ function VolunovaMobileApp() {
             { id: 'matched' as const, label: t('tabs.matched'), Icon: Sparkles },
             { id: 'browse' as const, label: t('tabs.browse'), Icon: Compass },
             { id: 'passport' as const, label: t('tabs.passport'), Icon: Award },
+            { id: 'profile' as const, label: t('tabs.profile'), Icon: UserIcon },
           ] as const
         ).map((tab) => {
           const active = activeTab === tab.id;

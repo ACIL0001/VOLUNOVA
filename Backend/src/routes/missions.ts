@@ -5,7 +5,7 @@ import { authenticateToken, optionalToken, requireRole, AuthenticatedRequest } f
 import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
 import { triggerRealtimeEvent } from '../config/pusher';
-import { calculateMatchScore } from '../services/smartMatcher';
+import { calculateMatchScore, findBestMatchingSkill } from '../services/smartMatcher';
 import { logAuditEvent } from '../services/auditLogger';
 import { sendMissionAcceptedEmail } from '../services/emailService';
 import { emitToUser, emitToMission } from '../config/socket';
@@ -24,7 +24,7 @@ const CreateMissionSchema = z.object({
   needs: z.array(
     z.object({
       roleName: z.string().min(2).max(100),
-      skillTag: z.string().min(2).max(50),
+      skillTag: z.string().min(2).max(150),
       icon: z.string().default('sparkles'),
       quantityNeeded: z.number().int().min(1).max(100),
       equipmentRequired: z.string().optional(),
@@ -65,6 +65,21 @@ router.get('/', optionalToken, async (req: AuthenticatedRequest, res: Response) 
     return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
 });
+
+// GET /api/missions/my-applications — Get applications submitted by the logged-in volunteer
+router.get(
+  '/my-applications',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const volunteerId = req.user!.userId;
+      const applications = await Application.find({ volunteerId }).lean();
+      return res.json({ ok: true, data: applications });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    }
+  }
+);
 
 // GET /api/missions/mine — Organization's own missions only (BOLA: ownership via org.userId)
 router.get(
@@ -137,33 +152,53 @@ router.get('/:id', optionalToken, async (req: AuthenticatedRequest, res: Respons
 
     const needs = await MissionNeed.find({ missionId: mission._id }).lean();
 
-    // Find recommended volunteers matching these needs
+    // Enrich each need with live fulfilled applications count from database
+    const enrichedNeeds = await Promise.all(
+      needs.map(async (n) => {
+        const liveFulfilled = await Application.countDocuments({
+          needId: n._id,
+          status: { $in: ['accepted', 'pending'] },
+        });
+        return {
+          ...n,
+          quantityFulfilled: liveFulfilled,
+        };
+      })
+    );
+
+    // Find real recommended volunteers genuinely matching these needs
     const volunteers = await User.find({ role: 'volunteer' })
       .select('name avatar city skills impactHours reliabilityScore bio')
-      .limit(15)
+      .limit(20)
       .lean();
 
-    const matchedVolunteers = volunteers.map((vol) => {
-      let maxScore = 0;
-      let matchedRole = '';
+    const matchedVolunteers = volunteers
+      .map((vol) => {
+        let maxScore = 0;
+        let matchedRole = '';
+        let matchingSkill = '';
 
-      for (const need of needs) {
-        const score = calculateMatchScore(
-          { skills: vol.skills || [], city: vol.city || 'Algiers', reliabilityScore: vol.reliabilityScore || 0 },
-          { skillTag: need.skillTag, targetCity: mission.venueName?.includes('Algiers') ? 'Algiers' : (mission.wilaya || 'Algiers') }
-        );
-        if (score > maxScore) {
-          maxScore = score;
-          matchedRole = need.roleName;
+        for (const need of enrichedNeeds) {
+          const score = calculateMatchScore(
+            { skills: vol.skills || [], city: vol.city || 'Algiers', reliabilityScore: vol.reliabilityScore || 0 },
+            { skillTag: need.skillTag, targetCity: mission.venueName?.includes('Algiers') ? 'Algiers' : (mission.wilaya || 'Algiers') }
+          );
+          if (score > maxScore) {
+            maxScore = score;
+            matchedRole = need.roleName;
+            matchingSkill = findBestMatchingSkill(vol.skills || [], need.skillTag) || '';
+          }
         }
-      }
 
-      return {
-        ...vol,
-        matchScore: maxScore,
-        matchedRole: matchedRole || (needs[0]?.roleName || 'Volunteer'),
-      };
-    }).sort((a, b) => b.matchScore - a.matchScore);
+        return {
+          ...vol,
+          matchScore: maxScore,
+          matchedRole: matchedRole || '',
+          matchingSkill: matchingSkill || '',
+        };
+      })
+      .filter((vol) => vol.matchScore >= 50 && !!vol.matchedRole)
+      .sort((a, b) => b.matchScore - a.matchScore);
 
     // Check if the current user has already applied
     let userApplication = null;
@@ -174,11 +209,14 @@ router.get('/:id', optionalToken, async (req: AuthenticatedRequest, res: Respons
       }).lean();
     }
 
+    const liveTotalFilled = enrichedNeeds.reduce((sum, n) => sum + (n.quantityFulfilled || 0), 0);
+
     return res.json({
       ok: true,
       data: {
         ...mission,
-        needs,
+        totalSlotsFilled: liveTotalFilled,
+        needs: enrichedNeeds,
         matchedVolunteers,
         userApplication,
       },

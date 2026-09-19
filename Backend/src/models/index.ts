@@ -19,7 +19,7 @@ const UserSchema = new Schema({
   },
   avatar: { type: String, default: '' },
   phone: { type: String, select: false }, // Revealed only upon accepted RSVP
-  skills: [{ type: String, trim: true, maxlength: 50, index: true }],
+  skills: [{ type: String, trim: true, maxlength: 150, index: true }],
   city: { type: String, default: 'Algiers', trim: true },
   location: {
     type: { type: String, enum: ['Point'], default: 'Point' },
@@ -35,12 +35,18 @@ const UserSchema = new Schema({
 
 UserSchema.index({ location: '2dsphere' });
 
-// 2. ORGANIZATION SCHEMA — Verification Document Lockdown
+// 2. ORGANIZATION SCHEMA — Verification Document Lockdown & Profile
 const OrganizationSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   name: { type: String, required: true, trim: true, maxlength: 150 },
   category: { type: String, default: 'Community Impact', trim: true },
+  description: { type: String, trim: true, maxlength: 2000, default: '' },
   logo: { type: String, default: '' },
+  email: { type: String, trim: true, lowercase: true, default: '' },
+  phone: { type: String, trim: true, default: '' },
+  address: { type: String, trim: true, default: '' },
+  city: { type: String, trim: true, default: 'Algiers' },
+  website: { type: String, trim: true, default: '' },
   verificationStatus: {
     type: String,
     enum: ['pending', 'verified', 'rejected'],
@@ -89,7 +95,7 @@ MissionSchema.index({ status: 1, createdAt: -1 });
 const MissionNeedSchema = new Schema({
   missionId: { type: Schema.Types.ObjectId, ref: 'Mission', required: true, index: true },
   roleName: { type: String, required: true, trim: true, maxlength: 100 },
-  skillTag: { type: String, required: true, trim: true, maxlength: 50 },
+  skillTag: { type: String, required: true, trim: true, maxlength: 150 },
   icon: { type: String, default: 'sparkles', trim: true },
   quantityNeeded: { type: Number, required: true, min: 1 },
   quantityFulfilled: { type: Number, default: 0, min: 0 },
@@ -118,7 +124,15 @@ const NotificationSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   type: {
     type: String,
-    enum: ['mission_matched', 'slot_fulfilled', 'application_accepted', 'org_verified', 'review_received'],
+    enum: [
+      'mission_matched',
+      'slot_fulfilled',
+      'application_accepted',
+      'org_verified',
+      'review_received',
+      'admin_support_alert',
+      'admin_support_reply',
+    ],
     required: true,
   },
   payload: { type: Schema.Types.Mixed, required: true },
@@ -151,6 +165,40 @@ const AuditLogSchema = new Schema({
   timestamp: { type: Date, default: Date.now, immutable: true },
 });
 
+// 9. SUPPORT TICKET SCHEMA — Organization Alerts, Reclamations & Admin Governance
+const SupportTicketSchema = new Schema({
+  orgId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  orgName: { type: String, required: true, trim: true },
+  orgEmail: { type: String, required: true, trim: true },
+  type: {
+    type: String,
+    enum: ['warning', 'reclamation', 'note', 'assistance'],
+    default: 'note',
+    required: true,
+    index: true,
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium',
+    index: true,
+  },
+  subject: { type: String, required: true, trim: true, maxlength: 250 },
+  message: { type: String, required: true, trim: true, maxlength: 4000 },
+  status: {
+    type: String,
+    enum: ['unread', 'in_progress', 'resolved'],
+    default: 'unread',
+    index: true,
+  },
+  adminReply: { type: String, trim: true, maxlength: 4000, default: '' },
+  repliedAt: { type: Date },
+  resolvedAt: { type: Date },
+}, { timestamps: true });
+
+SupportTicketSchema.index({ status: 1, createdAt: -1 });
+
 export const User = models.User || model('User', UserSchema);
 export const Organization = models.Organization || model('Organization', OrganizationSchema);
 export const Mission = models.Mission || model('Mission', MissionSchema);
@@ -159,3 +207,4 @@ export const Application = models.Application || model('Application', Applicatio
 export const Notification = models.Notification || model('Notification', NotificationSchema);
 export const Review = models.Review || model('Review', ReviewSchema);
 export const AuditLog = models.AuditLog || model('AuditLog', AuditLogSchema);
+export const SupportTicket = models.SupportTicket || model('SupportTicket', SupportTicketSchema);

@@ -145,6 +145,8 @@ export const fr = {
     not_found: 'Mission introuvable',
     accept_role_btn: 'Accepter ce rôle',
     you_joined: 'Inscrit',
+    no_matched_title: 'Aucun bénévole qualifié pour le moment',
+    no_matched_desc: 'Les bénévoles dont les compétences validées correspondent aux rôles requis (≥ 50%) apparaîtront ici automatiquement.',
   },
   demo: {
     banner_title: 'Contrôleur de Démo Pitch Double Écran (180s)',
@@ -306,6 +308,8 @@ export const fr = {
     tab_overview: 'Tableau de bord',
     tab_create: 'Créer une mission',
     tab_missions: 'Mes missions',
+    tab_profile: 'Profil Organisation',
+    tab_support: 'Support & Alertes',
     cta_create: 'Nouvelle mission avec IA',
     verified: 'Association vérifiée',
     pending: 'Vérification en cours',

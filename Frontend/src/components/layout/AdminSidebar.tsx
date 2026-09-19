@@ -9,6 +9,7 @@ import {
   Compass,
   Users,
   Activity,
+  LifeBuoy,
   ExternalLink,
 } from 'lucide-react';
 
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { name: 'Validation des ONG', href: '/admin/organizations', icon: ShieldCheck },
   { name: 'Contrôle des Missions', href: '/admin/missions', icon: Compass },
   { name: 'Répertoire Bénévoles', href: '/admin/volunteers', icon: Users },
+  { name: 'Support & Réclamations', href: '/admin/support', icon: LifeBuoy },
   { name: "Journal d'Audit", href: '/admin/audit', icon: Activity },
 ];
 

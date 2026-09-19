@@ -75,7 +75,15 @@ export default function CreateMissionStudio({
     api
       .getRegisteredSkills()
       .then((data) => {
-        if (Array.isArray(data)) setRegisteredSkills(data);
+        if (Array.isArray(data)) {
+          const seen = new Set<string>();
+          const unique = data.filter((item) => {
+            if (!item?.id || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          });
+          setRegisteredSkills(unique);
+        }
       })
       .catch((err) => console.warn('Could not load registered volunteer skills:', err));
   }, []);
@@ -444,7 +452,7 @@ export default function CreateMissionStudio({
                     </div>
                     <h4 className="text-sm font-semibold text-[#0b1f3a] mb-1.5">{need.roleName}</h4>
 
-                    <div className="flex items-center gap-1.5 mb-2">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
                       <span className="text-[11px] font-semibold text-[#5b6b7c]">
                         {t('create_mission.skill_label')}:
                       </span>
@@ -454,23 +462,28 @@ export default function CreateMissionStudio({
                           const updated = [...extractedData.needs];
                           updated[index].skillTag = e.target.value;
                           const found = registeredSkills.find(
-                            (s) => s.nameFr === e.target.value || s.id === e.target.value
+                            (s) => s.nameFr === e.target.value || s.id === e.target.value || s.nameAr === e.target.value
                           );
                           if (found?.icon) updated[index].icon = found.icon;
                           setExtractedData({ ...extractedData, needs: updated });
                         }}
-                        className="rounded-md bg-white border border-[#d8e0ea] px-2 py-0.5 text-[11px] font-semibold text-[#0b1f3a] focus:outline-none focus:border-[#0d7a6f]"
+                        className="rounded-md bg-white border border-[#d8e0ea] px-2 py-0.5 text-[11px] font-semibold text-[#0b1f3a] focus:outline-none focus:border-[#0d7a6f] max-w-full truncate"
                       >
-                        {registeredSkills.map((s) => (
-                          <option key={s.id} value={s.nameFr}>
-                            {locale === 'ar' ? s.nameAr : s.nameFr} ({s.volunteerCount}{' '}
-                            {t('create_mission.volunteers_count')})
-                          </option>
-                        ))}
-                        {!registeredSkills.some((s) => s.nameFr === need.skillTag) && (
+                        {registeredSkills.map((s) => {
+                          const val = locale === 'ar' ? s.nameAr : s.nameFr;
+                          return (
+                            <option key={s.id} value={val}>
+                              {val} ({s.volunteerCount} {t('create_mission.volunteers_count')})
+                            </option>
+                          );
+                        })}
+                        {!registeredSkills.some((s) => s.nameFr === need.skillTag || s.nameAr === need.skillTag) && (
                           <option value={need.skillTag}>{need.skillTag}</option>
                         )}
                       </select>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0d7a6f] bg-[#e6f4f2] px-2 py-0.5 rounded-md mt-1">
+                        🎯 {need.skillTag}
+                      </span>
                     </div>
 
                     {need.equipmentRequired && (

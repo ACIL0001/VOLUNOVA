@@ -227,39 +227,8 @@ function detectMissionKey(mission: Mission): string | null {
 
 export function getLocalizedMission(mission: Mission, locale: Locale): Mission {
   if (!mission) return mission;
-  const key = detectMissionKey(mission);
-  if (!key || !MISSION_LOCALIZATIONS[key]) {
-    return mission;
-  }
-
-  const loc = MISSION_LOCALIZATIONS[key][locale] || MISSION_LOCALIZATIONS[key]['ar'];
-  if (!loc) return mission;
-
-  const localizedNeeds: MissionNeed[] = (mission.needs || []).map((need) => {
-    const needMatch = loc.needs?.find((n) =>
-      need.roleName.toLowerCase().includes(n.roleMatch.toLowerCase()) ||
-      n.roleMatch.toLowerCase().includes(need.roleName.toLowerCase()) ||
-      need.skillTag.toLowerCase().includes(n.skillTag.toLowerCase())
-    );
-
-    if (needMatch) {
-      return {
-        ...need,
-        roleName: needMatch.roleName,
-        skillTag: needMatch.skillTag,
-        equipmentRequired: needMatch.equipmentRequired || need.equipmentRequired,
-      };
-    }
-    return need;
-  });
-
-  return {
-    ...mission,
-    title: loc.title,
-    description: loc.description,
-    venueName: loc.venueName,
-    needs: localizedNeeds,
-  };
+  // Preserve real database mission data, roles, and needs created by organizations
+  return mission;
 }
 
 export function getLocalizedCategory(category: string, t: (key: string) => string): string {

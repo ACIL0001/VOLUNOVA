@@ -234,8 +234,11 @@ export default function MissionOpsRoom() {
                     )}
                   </div>
 
-                  <div className="text-xs text-[#5b6b7c] mb-4">
-                    {t('ops.skill_required')}: <span className="text-[#0b1f3a] font-semibold">{need.skillTag}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#5b6b7c] mb-4">
+                    <span>{t('ops.skill_required')}:</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0d7a6f] bg-[#e6f4f2] border border-[#0d7a6f]/20 px-2 py-0.5 rounded-md">
+                      🎯 {need.skillTag}
+                    </span>
                   </div>
 
                   {/* Need Progress */}
@@ -295,77 +298,96 @@ export default function MissionOpsRoom() {
             <span className="text-xs font-medium text-[#5b6b7c]">{t('ops.smart_match_algo')}</span>
           </div>
 
-          <div className="rounded-2xl border border-[#d8e0ea] bg-white p-4 divide-y divide-[#d8e0ea] shadow-xs">
-            {mission.matchedVolunteers?.slice(0, 5).map((vol) => {
-              const isInvited = invitedMap[vol._id];
+          <div className="rounded-2xl border border-[#d8e0ea] bg-white p-5 shadow-xs">
+            {mission.matchedVolunteers && mission.matchedVolunteers.length > 0 ? (
+              <div className="divide-y divide-[#d8e0ea]">
+                {mission.matchedVolunteers.slice(0, 5).map((vol) => {
+                  const isInvited = invitedMap[vol._id];
 
-              return (
-                <div key={vol._id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {vol.avatar ? (
-                      <img
-                        src={vol.avatar}
-                        alt={vol.name}
-                        className="h-11 w-11 rounded-full object-cover border border-[#d8e0ea] flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="h-11 w-11 rounded-full bg-linear-to-br from-[#0d7a6f] to-[#0b1f3a] text-white font-bold text-sm flex items-center justify-center border border-[#0d7a6f]/30 flex-shrink-0 shadow-xs">
-                        {vol.name ? vol.name.trim().charAt(0).toUpperCase() : 'V'}
-                      </div>
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#0b1f3a]">{vol.name}</span>
-                        {vol.impactHours > 0 && vol.matchScore ? (
-                          <span className="rounded-full bg-[#e6f4f2] px-2 py-0.5 text-[10px] font-bold text-[#0d7a6f] border border-[#0d7a6f]/25">
-                            {vol.matchScore}% {t('ops.match_score')}
-                          </span>
+                  return (
+                    <div key={vol._id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {vol.avatar ? (
+                          <img
+                            src={vol.avatar}
+                            alt={vol.name}
+                            className="h-11 w-11 rounded-full object-cover border border-[#d8e0ea] flex-shrink-0"
+                          />
                         ) : (
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                            ✨ {t('ops.new_profile')}
-                          </span>
+                          <div className="h-11 w-11 rounded-full bg-linear-to-br from-[#0d7a6f] to-[#0b1f3a] text-white font-bold text-sm flex items-center justify-center border border-[#0d7a6f]/30 flex-shrink-0 shadow-xs">
+                            {vol.name ? vol.name.trim().charAt(0).toUpperCase() : 'V'}
+                          </div>
                         )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-[#0b1f3a]">{vol.name}</span>
+                            {vol.impactHours > 0 && vol.matchScore ? (
+                              <span className="rounded-full bg-[#e6f4f2] px-2 py-0.5 text-[10px] font-bold text-[#0d7a6f] border border-[#0d7a6f]/25">
+                                {vol.matchScore}% {t('ops.match_score')}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                ✨ {t('ops.new_profile')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-[#5b6b7c] mt-0.5">
+                             📍 {vol.city} | {t('ops.suggested_role')}: <span className="text-[#0b1f3a] font-semibold">{vol.matchedRole}</span>
+                           </div>
+                           <div className="flex flex-wrap items-center gap-2 text-[10px] mt-1.5">
+                             <span className="inline-flex items-center gap-1 font-bold text-[#0d7a6f] bg-[#e6f4f2] border border-[#0d7a6f]/25 px-2 py-0.5 rounded-md">
+                               🎯 {vol.matchingSkill || (vol.skills && vol.skills[0]) || vol.matchedRole}
+                             </span>
+                             {vol.reliabilityScore > 0 ? (
+                               <span className="text-[#5b6b7c]">🎖️ {t('ops.reliability')}: {vol.reliabilityScore}%</span>
+                             ) : (
+                               <span className="text-[#0d7a6f] font-medium">🎖️ {t('ops.new_volunteer')}</span>
+                             )}
+                             <span className="text-[#5b6b7c]">•</span>
+                             <span className="text-[#5b6b7c]">⏱️ {vol.impactHours || 0} {t('ops.prev_hours')}</span>
+                           </div>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[#5b6b7c] mt-0.5">
-                        📍 {vol.city} | {t('ops.suggested_role')}: <span className="text-[#0b1f3a] font-semibold">{vol.matchedRole}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-[#5b6b7c] mt-1">
-                        {vol.reliabilityScore > 0 ? (
-                          <span>🎖️ {t('ops.reliability')}: {vol.reliabilityScore}%</span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleInvite(vol._id)}
+                        disabled={isInvited}
+                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex-shrink-0 ${
+                          isInvited
+                            ? 'bg-[#f1f5f9] text-[#8fa0b3] border border-[#d8e0ea] cursor-not-allowed'
+                            : 'btn-primary'
+                        }`}
+                      >
+                        {isInvited ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>{t('ops.invited_btn')}</span>
+                          </>
                         ) : (
-                          <span className="text-[#0d7a6f] font-medium">🎖️ {t('ops.new_volunteer')}</span>
+                          <>
+                            <Send className="h-3.5 w-3.5" />
+                            <span>{t('ops.invite_btn')}</span>
+                          </>
                         )}
-                        <span>•</span>
-                        <span>⏱️ {vol.impactHours || 0} {t('ops.prev_hours')}</span>
-                      </div>
+                      </button>
                     </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleInvite(vol._id)}
-                    disabled={isInvited}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex-shrink-0 ${
-                      isInvited
-                        ? 'bg-[#f1f5f9] text-[#8fa0b3] border border-[#d8e0ea] cursor-not-allowed'
-                        : 'btn-primary'
-                    }`}
-                  >
-                    {isInvited ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>{t('ops.invited_btn')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-3.5 w-3.5" />
-                        <span>{t('ops.invite_btn')}</span>
-                      </>
-                    )}
-                  </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-8 text-center flex flex-col items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-[#f8fafc] border border-[#d8e0ea] flex items-center justify-center text-[#5b6b7c] mb-3">
+                  <Users className="h-6 w-6 text-[#5b6b7c]" />
                 </div>
-              );
-            })}
+                <h3 className="text-sm font-bold text-[#0b1f3a] mb-1">
+                  {t('ops.no_matched_title')}
+                </h3>
+                <p className="text-xs text-[#5b6b7c] max-w-xs leading-relaxed">
+                  {t('ops.no_matched_desc')}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

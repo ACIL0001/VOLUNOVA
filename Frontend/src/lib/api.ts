@@ -4,6 +4,7 @@ export interface User {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'volunteer' | 'organization' | 'admin';
   avatar?: string;
   city?: string;
@@ -15,9 +16,36 @@ export interface User {
     _id: string;
     name: string;
     category: string;
+    description?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    website?: string;
     logo?: string;
     verificationStatus: 'pending' | 'verified' | 'rejected';
+    totalMissions?: number;
+    totalVolunteersMobilized?: number;
+    createdAt?: string;
   };
+}
+
+export interface SupportTicket {
+  _id: string;
+  orgId: string;
+  userId: string;
+  orgName: string;
+  orgEmail: string;
+  type: 'warning' | 'reclamation' | 'note' | 'assistance';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  subject: string;
+  message: string;
+  status: 'unread' | 'in_progress' | 'resolved';
+  adminReply?: string;
+  repliedAt?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MissionNeed {
@@ -275,7 +303,108 @@ class ApiService {
     });
   }
 
-  // 7. Skills
+  // 7. Profile Updates
+  async updateProfile(data: {
+    name?: string;
+    city?: string;
+    phone?: string;
+    bio?: string;
+    skills?: string[];
+    orgName?: string;
+    category?: string;
+    description?: string;
+    orgEmail?: string;
+    orgPhone?: string;
+    address?: string;
+    website?: string;
+    logo?: string;
+  }): Promise<{ user: User; organization: any }> {
+    return this.request<{ user: User; organization: any }>('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // 8. Organization Support & Admin Alert Center
+  async createSupportTicket(data: {
+    type: 'warning' | 'reclamation' | 'note' | 'assistance';
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    subject: string;
+    message: string;
+  }): Promise<SupportTicket> {
+    return this.request<SupportTicket>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getMySupportTickets(): Promise<SupportTicket[]> {
+    return this.request<SupportTicket[]>('/support/tickets/mine');
+  }
+
+  async getAdminSupportTickets(params?: {
+    type?: string;
+    status?: string;
+    priority?: string;
+    search?: string;
+  }): Promise<{
+    tickets: SupportTicket[];
+    metrics: {
+      total: number;
+      unread: number;
+      warnings: number;
+      resolved: number;
+    };
+  }> {
+    const cleanParams: Record<string, string> = {};
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (
+          val !== undefined &&
+          val !== null &&
+          val !== '' &&
+          val !== 'undefined' &&
+          val !== 'null'
+        ) {
+          cleanParams[key] = String(val);
+        }
+      });
+    }
+    const query = new URLSearchParams(cleanParams).toString();
+    return this.request<{
+      tickets: SupportTicket[];
+      metrics: {
+        total: number;
+        unread: number;
+        warnings: number;
+        resolved: number;
+      };
+    }>(`/support/tickets/admin${query ? `?${query}` : ''}`);
+  }
+
+  async getAdminUnreadTicketsCount(): Promise<{
+    unreadCount: number;
+    urgentCount: number;
+    recentTickets: SupportTicket[];
+  }> {
+    return this.request<{
+      unreadCount: number;
+      urgentCount: number;
+      recentTickets: SupportTicket[];
+    }>('/support/tickets/admin/unread-count');
+  }
+
+  async replyAdminSupportTicket(
+    id: string,
+    data: { adminReply?: string; status?: 'unread' | 'in_progress' | 'resolved' }
+  ): Promise<SupportTicket> {
+    return this.request<SupportTicket>(`/support/tickets/${id}/admin-reply`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // 9. Skills & AI
   async getRegisteredSkills(): Promise<{
     id: string;
     name: string;
@@ -287,6 +416,35 @@ class ApiService {
     volunteerCount: number;
   }[]> {
     return this.request<any[]>('/skills');
+  }
+
+  async getSkillCategories(): Promise<{
+    id: string;
+    labelFr: string;
+    labelAr: string;
+    labelEn: string;
+    icon: string;
+  }[]> {
+    return this.request<any[]>('/skills/categories');
+  }
+
+  async classifySkillWithAI(prompt: string, locale?: string): Promise<{
+    matchedCanonical: any | null;
+    normalizedSkill: {
+      id: string;
+      nameFr: string;
+      nameEn: string;
+      nameAr: string;
+      category: string;
+      icon: string;
+    };
+    explanation: string;
+    isCanonical: boolean;
+  }> {
+    return this.request<any>('/skills/ai-classify', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, locale }),
+    });
   }
 }
 

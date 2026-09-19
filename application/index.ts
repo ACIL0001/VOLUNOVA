@@ -1,4 +1,12 @@
 import { registerRootComponent } from 'expo';
+import { LogBox } from 'react-native';
+
+// Suppress harmless development-only Metro / HMR WebSocket reconnection warnings
+LogBox.ignoreLogs([
+  'Cannot connect to Expo CLI',
+  'Disconnected from Metro',
+  'Bundle Splitting – Metro disconnected',
+]);
 
 import App from './App';
 

@@ -15,6 +15,7 @@ import reviewRoutes from './routes/reviews';
 import statsRoutes from './routes/stats';
 import adminRoutes from './routes/admin';
 import skillsRoutes from './routes/skills';
+import supportRoutes from './routes/support';
 
 const app = express();
 const server = http.createServer(app);
@@ -73,6 +74,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/skills', skillsRoutes);
+app.use('/api/support', supportRoutes);
 
 // 404 Fallback
 app.use((req: Request, res: Response) => {

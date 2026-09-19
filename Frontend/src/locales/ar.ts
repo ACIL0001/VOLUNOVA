@@ -145,6 +145,8 @@ export const ar = {
     not_found: 'المبادرة غير موجودة',
     accept_role_btn: 'الانضمام لهذا الدور',
     you_joined: 'مسجل',
+    no_matched_title: 'لا يوجد متطوعون مطابقون حالياً',
+    no_matched_desc: 'سيظهر هنا المتطوعون المسجلون الذين تتطابق كفاءاتهم المعتمدة مع احتياجات المبادرة بنسبة 50% أو أعلى.',
   },
   demo: {
     banner_title: 'منظومة العرض التجريبي المزدوج المباشر',
@@ -306,6 +308,8 @@ export const ar = {
     tab_overview: 'لوحة التحكم',
     tab_create: 'إنشاء مهمة',
     tab_missions: 'مهامي',
+    tab_profile: 'ملف المنظمة',
+    tab_support: 'الدعم والبلاغات',
     cta_create: 'مهمة جديدة بالذكاء الاصطناعي',
     verified: 'جمعية موثّقة',
     pending: 'قيد التحقق',

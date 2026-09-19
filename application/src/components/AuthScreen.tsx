@@ -54,7 +54,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [city, setCity] = useState('Algiers');
+  const [city, setCity] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
 

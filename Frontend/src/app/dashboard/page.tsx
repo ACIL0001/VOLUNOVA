@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import OrgHeader from '@/components/layout/OrgHeader';
 import CreateMissionStudio from '@/components/missions/CreateMissionStudio';
+import OrgProfileTab from '@/components/dashboard/OrgProfileTab';
+import OrgSupportTab from '@/components/dashboard/OrgSupportTab';
 import { api, Mission } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
 
-type TabId = 'overview' | 'create' | 'missions';
+type TabId = 'overview' | 'create' | 'missions' | 'profile' | 'support';
 
 function statusLabel(status: string, t: (k: string) => string) {
   const map: Record<string, string> = {
@@ -44,7 +46,7 @@ function DashboardInner() {
 
   const initialTab = (searchParams.get('tab') as TabId) || 'overview';
   const [tab, setTab] = useState<TabId>(
-    ['overview', 'create', 'missions'].includes(initialTab) ? initialTab : 'overview'
+    ['overview', 'create', 'missions', 'profile', 'support'].includes(initialTab) ? initialTab : 'overview'
   );
   const [missions, setMissions] = useState<Mission[]>([]);
   const [organization, setOrganization] = useState<any>(user?.organization || null);
@@ -75,7 +77,7 @@ function DashboardInner() {
 
   useEffect(() => {
     const q = searchParams.get('tab') as TabId;
-    if (q && ['overview', 'create', 'missions'].includes(q) && q !== tab) {
+    if (q && ['overview', 'create', 'missions', 'profile', 'support'].includes(q) && q !== tab) {
       setTab(q);
     }
   }, [searchParams, tab]);
@@ -105,7 +107,11 @@ function DashboardInner() {
       ? t('dashboard.tab_create')
       : tab === 'missions'
         ? t('dashboard.tab_missions')
-        : t('dashboard.tab_overview');
+        : tab === 'profile'
+          ? (t('dashboard.tab_profile') || 'Profil Organisation')
+          : tab === 'support'
+            ? (t('dashboard.tab_support') || 'Support & Réclamations')
+            : t('dashboard.tab_overview');
 
   return (
     <>
@@ -307,6 +313,21 @@ function DashboardInner() {
               </div>
             )}
           </div>
+        )}
+
+        {tab === 'profile' && (
+          <OrgProfileTab
+            organization={organization}
+            user={user}
+            onUpdated={(updatedOrg) => {
+              setOrganization(updatedOrg);
+              void refreshUser();
+            }}
+          />
+        )}
+
+        {tab === 'support' && (
+          <OrgSupportTab />
         )}
       </main>
     </>

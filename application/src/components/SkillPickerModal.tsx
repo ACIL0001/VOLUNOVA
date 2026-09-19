@@ -9,7 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { Search, Sparkles, X } from 'lucide-react-native';
+import { Search, Sparkles, X, Check, Filter } from 'lucide-react-native';
 import { useTranslation } from '../context/LanguageContext';
 import { getBackendUrl } from '../config/apiConfig';
 import { civic, civicShadow } from '../theme/civic';
@@ -23,6 +23,19 @@ export interface SkillOption {
   category: string;
 }
 
+export const CATEGORIES = [
+  { id: 'all', labelFr: 'Toutes', labelAr: 'الكل', labelEn: 'All' },
+  { id: 'Tech & Digital', labelFr: 'Tech 💻', labelAr: 'تكنولوجيا 💻', labelEn: 'Tech 💻' },
+  { id: 'Santé & Soins', labelFr: 'Santé 🩺', labelAr: 'صحة 🩺', labelEn: 'Health 🩺' },
+  { id: 'Travaux & BTP', labelFr: 'Travaux 🔨', labelAr: 'أشغال 🔨', labelEn: 'Works 🔨' },
+  { id: 'Aide Humanitaire', labelFr: 'Humanitaire 🍲', labelAr: 'مساعدات 🍲', labelEn: 'Aid 🍲' },
+  { id: 'Éducation & Jeunesse', labelFr: 'Éducation 📚', labelAr: 'تعليم 📚', labelEn: 'Education 📚' },
+  { id: 'Environnement & Nature', labelFr: 'Écologie 🌲', labelAr: 'بيئة 🌲', labelEn: 'Ecology 🌲' },
+  { id: 'Logistique & Transport', labelFr: 'Transport 🚗', labelAr: 'نقل 🚗', labelEn: 'Transport 🚗' },
+  { id: 'Média & Communication', labelFr: 'Média 📸', labelAr: 'إعلام 📸', labelEn: 'Media 📸' },
+  { id: 'Organisation', labelFr: 'Organisation 🤝', labelAr: 'تنظيم 🤝', labelEn: 'Events 🤝' },
+];
+
 export const AVAILABLE_SKILLS: SkillOption[] = [
   { id: 'web_development', icon: '💻', nameEn: 'Web Development & IT', nameFr: 'Développement Web & Informatique', nameAr: 'تطوير الويب والمعلوماتية', category: 'Tech & Digital' },
   { id: 'graphic_design', icon: '🎨', nameEn: 'Graphic Design', nameFr: 'Design Graphique & Création', nameAr: 'تصميم جرافيك وإبداع', category: 'Tech & Digital' },
@@ -33,9 +46,62 @@ export const AVAILABLE_SKILLS: SkillOption[] = [
   { id: 'teaching_tutoring', icon: '📚', nameEn: 'Teaching & Tutoring', nameFr: 'Soutien Scolaire & Enseignement', nameAr: 'تعليم وتدريب ودعم مدرسي', category: 'Éducation & Jeunesse' },
   { id: 'reforestation_environment', icon: '🌲', nameEn: 'Reforestation & Environment', nameFr: 'Reboisement & Écologie', nameAr: 'تشجير وبيئة ونظافة', category: 'Environnement & Nature' },
   { id: 'photography_videography', icon: '📸', nameEn: 'Photography & Video', nameFr: 'Photographie & Vidéo', nameAr: 'تصوير وتغطية إعلامية', category: 'Média & Communication' },
-  { id: 'translation_languages', icon: '🗣️', nameEn: 'Translation & Languages', nameFr: 'Traduction & Langues', nameAr: 'ترجمة ولغات', category: 'Communication' },
+  { id: 'translation_languages', icon: '🗣️', nameEn: 'Translation & Languages', nameFr: 'Traduction & Langues', nameAr: 'ترجمة ولغات', category: 'Média & Communication' },
   { id: 'event_organization', icon: '🤝', nameEn: 'Event Coordination', nameFr: 'Accueil & Coordination', nameAr: 'استقبال وتنظيم فعاليات', category: 'Organisation' },
 ];
+
+function fallbackClientClassify(query: string, locale: string): {
+  skill: SkillOption;
+  explanation: string;
+  isCanonical: boolean;
+} {
+  const cleanQ = query.trim();
+  const q = cleanQ.toLowerCase();
+
+  // Keyword heuristic mapping to standard categories
+  const catKeywords: Record<string, { catFr: string; catAr: string; icon: string; keywords: string[] }> = {
+    'Travaux & BTP': { catFr: 'Travaux & BTP', catAr: 'أشغال وبناء', icon: '🔨', keywords: ['بناء', 'ترميم', 'صيانة', 'دهان', 'سباكة', 'كهرباء', 'نجارة', 'reparer', 'bricolage', 'murs', 'plomberie', 'travaux', 'peinture'] },
+    'Aide Humanitaire': { catFr: 'Aide Humanitaire', catAr: 'مساعدات إنسانية', icon: '🍲', keywords: ['إطعام', 'طبخ', 'وجبات', 'قفة', 'مساعدات', 'توزيع', 'nourriture', 'cuisine', 'repas', 'aide', 'humanitaire'] },
+    'Santé & Soins': { catFr: 'Santé & Soins', catAr: 'صحة ورعاية طبية', icon: '🩺', keywords: ['صحة', 'طب', 'طبيب', 'تمريض', 'إسعاف', 'علاج', 'sante', 'soins', 'medical', 'secours', 'urgence'] },
+    'Éducation & Jeunesse': { catFr: 'Éducation & Jeunesse', catAr: 'تعليم وتأطير شبابي', icon: '📚', keywords: ['تعليم', 'تدريس', 'دروس', 'دعم', 'مدرسة', 'أطفال', 'cours', 'tutoring', 'formation', 'jeunesse'] },
+    'Environnement & Nature': { catFr: 'Environnement & Nature', catAr: 'بيئة وتشجير', icon: '🌲', keywords: ['تشجير', 'غرس', 'بيئة', 'تنظيف', 'شاطئ', 'أشجار', 'arbre', 'nettoyage', 'plage', 'nature', 'recyclage'] },
+    'Logistique & Transport': { catFr: 'Logistique & Transport', catAr: 'لوجستيك ونقل', icon: '🚗', keywords: ['نقل', 'سياقة', 'سائق', 'توصيل', 'شاحنة', 'conduite', 'transport', 'logistique', 'livraison'] },
+    'Média & Communication': { catFr: 'Média & Communication', catAr: 'إعلام وتواصل', icon: '📸', keywords: ['تصوير', 'فيديو', 'كاميرا', 'ترجمة', 'photo', 'video', 'media', 'redaction', 'reseaux'] },
+    'Tech & Digital': { catFr: 'Tech & Digital', catAr: 'تكنولوجيا وبرمجة', icon: '💻', keywords: ['برمجة', 'موقع', 'تطبيق', 'كمبيوتر', 'معلوماتية', 'code', 'web', 'informatique', 'dev', 'software'] },
+  };
+
+  let detectedCatFr = 'Organisation & Événements';
+  let detectedCatAr = 'تنظيم وفعاليات';
+  let detectedIcon = '🤝';
+  for (const item of Object.values(catKeywords)) {
+    if (item.keywords.some((k) => q.includes(k) || k.includes(q))) {
+      detectedCatFr = item.catFr;
+      detectedCatAr = item.catAr;
+      detectedIcon = item.icon;
+      break;
+    }
+  }
+
+  const chosenCat = locale === 'ar' ? detectedCatAr : detectedCatFr;
+  const formattedSkillFr = `${detectedCatFr} (${cleanQ})`;
+  const formattedSkillAr = `${detectedCatAr} (${cleanQ})`;
+  const finalId = locale === 'ar' ? formattedSkillAr : formattedSkillFr;
+
+  return {
+    skill: {
+      id: finalId,
+      icon: detectedIcon,
+      nameFr: formattedSkillFr,
+      nameEn: `${detectedCatFr} (${cleanQ})`,
+      nameAr: formattedSkillAr,
+      category: detectedCatFr,
+    },
+    explanation: locale === 'ar'
+      ? `تم التصنيف الذكي ضمن فئة : ${chosenCat}`
+      : `Classé automatiquement dans la catégorie : ${chosenCat}`,
+    isCanonical: false,
+  };
+}
 
 interface SkillPickerModalProps {
   visible: boolean;
@@ -50,13 +116,20 @@ export default function SkillPickerModal({
   onToggleSkill,
   onClose,
 }: SkillPickerModalProps) {
-  const { t, locale, textAlign, flexDirection } = useTranslation();
+  const { t, locale, textAlign, flexDirection, isRTL } = useTranslation();
   const [searchText, setSearchText] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<SkillOption | null>(null);
-  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [aiClassification, setAiClassification] = useState<{
+    skill: SkillOption;
+    explanation: string;
+    isCanonical: boolean;
+  } | null>(null);
+
+  const [skillsList, setSkillsList] = useState<SkillOption[]>(AVAILABLE_SKILLS);
   const backendUrl = getBackendUrl();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const getSkillLabel = (item: SkillOption) => {
     if (locale === 'ar') return item.nameAr;
@@ -64,47 +137,129 @@ export default function SkillPickerModal({
     return item.nameEn;
   };
 
-  useEffect(() => {
-    if (!searchText.trim() || searchText.trim().length < 2) {
-      setAiSuggestion(null);
-      setAiExplanation(null);
-      setIsSearching(false);
+  const getCategoryLabel = (cat: typeof CATEGORIES[0]) => {
+    if (locale === 'ar') return cat.labelAr;
+    if (locale === 'fr') return cat.labelFr;
+    return cat.labelEn;
+  };
+
+  // AI Classification with Gemini via backend + Instant fallback
+  const triggerAiClassification = async (query: string) => {
+    const cleanQ = query.trim();
+    if (!cleanQ || cleanQ.length < 2) {
+      setAiClassification(null);
+      setIsClassifying(false);
       return;
     }
 
-    setIsSearching(true);
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Direct local check for instant 0ms response on exact/substring matches
+    const localMatch = AVAILABLE_SKILLS.find(
+      (s) =>
+        s.nameAr === cleanQ ||
+        s.nameAr.includes(cleanQ) ||
+        s.nameFr.toLowerCase() === cleanQ.toLowerCase() ||
+        s.nameEn.toLowerCase() === cleanQ.toLowerCase()
+    );
+
+    if (localMatch) {
+      setAiClassification({
+        skill: localMatch,
+        explanation: locale === 'ar' ? `مطابقة مباشرة مع: ${localMatch.nameAr}` : `Correspond directement à : ${localMatch.nameFr}`,
+        isCanonical: true,
+      });
+      setIsClassifying(false);
+      return;
+    }
+
+    setIsClassifying(true);
+
+    // 4.5 second hard timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 4500);
+
+    try {
+      const res = await fetch(`${backendUrl}/skills/ai-classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: cleanQ, locale }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+
+      if (data.ok && data.data?.normalizedSkill) {
+        const norm = data.data.normalizedSkill;
+        const formattedSkillFr = data.data.formattedSkill || `${norm.category || 'Général'} (${cleanQ})`;
+        const formattedSkillAr = data.data.formattedSkillAr || `${data.data.categoryAr || norm.category || 'عام'} (${cleanQ})`;
+        const finalId = locale === 'ar' ? formattedSkillAr : formattedSkillFr;
+
+        const normalizedItem: SkillOption = {
+          id: finalId,
+          icon: norm.icon || '✨',
+          nameFr: formattedSkillFr,
+          nameEn: formattedSkillFr,
+          nameAr: formattedSkillAr,
+          category: norm.category,
+        };
+
+        setAiClassification({
+          skill: normalizedItem,
+          explanation: data.data.explanation || '',
+          isCanonical: !!data.data.isCanonical,
+        });
+
+        // Add to local list if custom normalized
+        setSkillsList((prev) => {
+          if (prev.some((s) => s.id === normalizedItem.id)) return prev;
+          return [normalizedItem, ...prev];
+        });
+      } else {
+        // Fallback to client-side heuristic
+        const fb = fallbackClientClassify(cleanQ, locale);
+        setAiClassification(fb);
+      }
+    } catch (e: any) {
+      // Network timeout or connection refused: use client-side heuristic
+      const fb = fallbackClientClassify(cleanQ, locale);
+      setAiClassification(fb);
+    } finally {
+      clearTimeout(timeoutId);
+      setIsClassifying(false);
+    }
+  };
+
+  // Debounce AI trigger on typing
+  useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    debounceTimer.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`${backendUrl}/skills/suggest`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchText.trim(), locale }),
-        });
-        const data = await res.json();
-        if (data.ok && data.data?.aiSuggestion) {
-          const match = AVAILABLE_SKILLS.find((s) => s.id === data.data.aiSuggestion.id);
-          setAiSuggestion(match || null);
-          setAiExplanation(data.data.aiExplanation || null);
-        } else {
-          setAiSuggestion(null);
-          setAiExplanation(null);
-        }
-      } catch (e) {
-        console.warn('Smart skill search error:', e);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
+    if (searchText.trim().length >= 2) {
+      debounceTimer.current = setTimeout(() => {
+        triggerAiClassification(searchText.trim());
+      }, 350);
+    } else {
+      setAiClassification(null);
+      setIsClassifying(false);
+    }
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-  }, [searchText, locale, backendUrl]);
+  }, [searchText]);
 
-  const filteredSkills = AVAILABLE_SKILLS.filter((item) => {
+  const filteredSkills = skillsList.filter((item) => {
     const q = searchText.toLowerCase().trim();
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    if (!matchesCategory) return false;
+
     if (!q) return true;
     return (
       item.nameFr.toLowerCase().includes(q) ||
@@ -115,12 +270,30 @@ export default function SkillPickerModal({
     );
   });
 
+  const handleAddAiSkill = (skill: SkillOption) => {
+    setSkillsList((prev) => {
+      if (prev.some((s) => s.id === skill.id)) return prev;
+      return [skill, ...prev];
+    });
+    if (!selectedSkills.includes(skill.id)) {
+      onToggleSkill(skill.id);
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={styles.card}>
+          {/* Header */}
           <View style={[styles.headerRow, { flexDirection }]}>
-            <Text style={[styles.title, { textAlign }]}>{t('auth.selectSkillsBtn')}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { textAlign }]}>{t('auth.selectSkillsBtn')}</Text>
+              <Text style={[styles.subtitle, { textAlign }]}>
+                {locale === 'ar'
+                  ? 'اختر مجالات خبرتك أو صِف ما تتقنه بالذكاء الاصطناعي'
+                  : 'Choisissez vos domaines ou décrivez vos compétences avec l’IA'}
+              </Text>
+            </View>
             <View style={[styles.count, selectedSkills.length ? styles.countOk : styles.countWarn]}>
               <Text style={[styles.countText, { color: selectedSkills.length ? civic.success : civic.danger }]}>
                 {selectedSkills.length > 0
@@ -129,49 +302,94 @@ export default function SkillPickerModal({
               </Text>
             </View>
           </View>
-          <Text style={[styles.subtitle, { textAlign }]}>{t('auth.skillsHint')}</Text>
 
+          {/* Search & AI Input */}
           <View style={styles.search}>
             <Search size={16} color={civic.muted} />
             <TextInput
               style={[styles.searchInput, { textAlign }]}
-              placeholder={t('auth.smartSearchPlaceholder')}
+              placeholder={
+                locale === 'ar'
+                  ? 'اكتب مهارتك (مثال: صيانة كهرباء، إطعام خيري، تدريس...)'
+                  : 'Décrivez vos compétences (ex: réparer des murs, cuisine collective...)'
+              }
               placeholderTextColor={civic.muted2}
               value={searchText}
               onChangeText={setSearchText}
               autoCapitalize="none"
             />
-            {isSearching ? (
+            {isClassifying ? (
               <ActivityIndicator size="small" color={civic.teal} />
             ) : searchText.length > 0 ? (
               <TouchableOpacity onPress={() => setSearchText('')}>
-                <X size={14} color={civic.muted} />
+                <X size={15} color={civic.muted} />
               </TouchableOpacity>
-            ) : null}
+            ) : (
+              <TouchableOpacity
+                onPress={() => triggerAiClassification(searchText)}
+                style={styles.aiSparkleBtn}
+              >
+                <Sparkles size={14} color={civic.teal} />
+              </TouchableOpacity>
+            )}
           </View>
 
-          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-            {aiSuggestion && (
-              <View style={styles.aiBox}>
-                <View style={styles.aiHead}>
+          {/* Dynamic Gemini AI Result Box */}
+          {aiClassification && (
+            <View style={styles.aiCard}>
+              <View style={styles.aiCardHead}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Sparkles size={14} color={civic.teal} />
-                  <Text style={styles.aiTitle}>{t('auth.aiSuggestedTitle')}</Text>
-                </View>
-                <Text style={styles.aiHint}>{aiExplanation || t('auth.aiSuggestionHint')}</Text>
-                <TouchableOpacity
-                  onPress={() => onToggleSkill(aiSuggestion.id)}
-                  style={[
-                    styles.aiChip,
-                    selectedSkills.includes(aiSuggestion.id) && { backgroundColor: civic.teal },
-                  ]}
-                >
-                  <Text style={[styles.chipText, selectedSkills.includes(aiSuggestion.id) && { color: civic.white }]}>
-                    {aiSuggestion.icon} {getSkillLabel(aiSuggestion)}
+                  <Text style={styles.aiBadgeTitle}>
+                    {locale === 'ar' ? 'اكتشاف وتصنيف ذكي (Gemini AI)' : 'Détection Intelligente Gemini AI'}
                   </Text>
-                </TouchableOpacity>
+                </View>
+                <View style={styles.catBadge}>
+                  <Text style={styles.catBadgeText}>{aiClassification.skill.category}</Text>
+                </View>
               </View>
-            )}
 
+              <Text style={styles.aiExplanationText}>
+                {aiClassification.explanation}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => handleAddAiSkill(aiClassification.skill)}
+                style={[
+                  styles.addAiBtn,
+                  selectedSkills.includes(aiClassification.skill.id) && styles.addAiBtnOn,
+                ]}
+              >
+                <Text style={[styles.addAiBtnText, selectedSkills.includes(aiClassification.skill.id) && { color: civic.white }]}>
+                  {selectedSkills.includes(aiClassification.skill.id) ? '✓ ' : '+ '}
+                  {aiClassification.skill.icon} {getSkillLabel(aiClassification.skill)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Category Filter Horizontal Scroll */}
+          <View style={styles.categoryContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+              {CATEGORIES.map((cat) => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedCategory(cat.id)}
+                    style={[styles.catChip, isActive && styles.catChipOn]}
+                  >
+                    <Text style={[styles.catChipText, isActive && styles.catChipTextOn]}>
+                      {getCategoryLabel(cat)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Skills Grid */}
+          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
             <View style={styles.grid}>
               {filteredSkills.map((item) => {
                 const selected = selectedSkills.includes(item.id);
@@ -190,6 +408,7 @@ export default function SkillPickerModal({
             </View>
           </ScrollView>
 
+          {/* Footer Save Button */}
           <TouchableOpacity
             onPress={onClose}
             disabled={selectedSkills.length === 0}
@@ -220,16 +439,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: civic.border,
     padding: 18,
-    maxHeight: '88%',
+    maxHeight: '90%',
     ...civicShadow.raised,
   },
-  headerRow: { justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { color: civic.navy, fontSize: 17, fontWeight: '800' },
+  headerRow: {
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  title: { color: civic.navy, fontSize: 16, fontWeight: '800' },
+  subtitle: { color: civic.muted, fontSize: 11, marginTop: 2, maxWidth: 240 },
   count: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
   countOk: { backgroundColor: civic.successBg, borderColor: civic.successBorder },
   countWarn: { backgroundColor: civic.dangerBg, borderColor: civic.dangerBorder },
   countText: { fontSize: 10, fontWeight: '800' },
-  subtitle: { color: civic.muted, fontSize: 11, marginBottom: 12 },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -240,46 +463,73 @@ const styles = StyleSheet.create({
     borderColor: civic.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 8,
   },
-  searchInput: { flex: 1, color: civic.navy, fontSize: 13, paddingVertical: 2 },
-  scroll: { maxHeight: 380 },
-  aiBox: {
-    backgroundColor: civic.tealSoft,
-    borderRadius: 14,
+  searchInput: { flex: 1, color: civic.navy, fontSize: 12, paddingVertical: 2 },
+  aiSparkleBtn: { padding: 4 },
+  aiCard: {
+    backgroundColor: '#f0fdfa',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(13,122,111,0.3)',
-    padding: 12,
-    marginBottom: 12,
+    borderColor: 'rgba(13,122,111,0.25)',
+    padding: 10,
+    marginBottom: 8,
   },
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  aiTitle: { color: civic.teal, fontSize: 13, fontWeight: '800' },
-  aiHint: { color: civic.navySoft, fontSize: 11, marginBottom: 8 },
-  aiChip: {
+  aiCardHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  aiBadgeTitle: { color: civic.teal, fontSize: 11, fontWeight: '800' },
+  catBadge: { backgroundColor: 'rgba(13,122,111,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  catBadgeText: { color: civic.teal, fontSize: 9, fontWeight: '800' },
+  aiExplanationText: { color: '#0f3d37', fontSize: 11, marginBottom: 8, lineHeight: 15 },
+  addAiBtn: {
     backgroundColor: civic.white,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: civic.teal,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignSelf: 'flex-start',
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 },
+  addAiBtnOn: { backgroundColor: civic.teal },
+  addAiBtnText: { color: civic.navy, fontSize: 11, fontWeight: '700' },
+  categoryContainer: { marginBottom: 10 },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: civic.bgSoft,
+    borderWidth: 1,
+    borderColor: civic.border,
+  },
+  catChipOn: {
+    backgroundColor: '#e6f4f2',
+    borderColor: civic.teal,
+  },
+  catChipText: { fontSize: 10, fontWeight: '700', color: civic.muted },
+  catChipTextOn: { color: civic.teal, fontWeight: '800' },
+  scroll: { maxHeight: 300 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingVertical: 4 },
   chip: {
     backgroundColor: civic.bgSoft,
     borderWidth: 1,
     borderColor: civic.border,
     borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
   chipOn: { backgroundColor: civic.teal, borderColor: civic.teal },
-  chipText: { color: civic.navy, fontSize: 12, fontWeight: '600' },
+  chipText: { color: civic.navy, fontSize: 11, fontWeight: '600' },
   chipTextOn: { color: civic.white, fontWeight: '800' },
   confirm: {
-    marginTop: 14,
+    marginTop: 12,
     backgroundColor: civic.teal,
     borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   confirmOff: { backgroundColor: civic.border, opacity: 0.7 },

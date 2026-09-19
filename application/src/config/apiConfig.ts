@@ -4,7 +4,7 @@ import { NativeModules, Platform } from 'react-native';
  * Default LAN IP of the computer running the VOLUNOVA backend server.
  * Used as fallback when testing via Expo Go on physical mobile devices.
  */
-export const DEFAULT_LAN_IP = '192.168.100.2';
+export const DEFAULT_LAN_IP = '10.95.191.186';
 export const BACKEND_PORT = 5000;
 
 /**
@@ -40,18 +40,23 @@ export function getBackendUrl(): string {
   const scriptURL: string | undefined = NativeModules.SourceCode?.scriptURL;
   if (scriptURL) {
     const match = scriptURL.match(/https?:\/\/([^/:]+)/);
-    if (
-      match &&
-      match[1] &&
-      match[1] !== 'localhost' &&
-      match[1] !== '127.0.0.1' &&
-      match[1] !== '10.0.2.2'
-    ) {
-      return `http://${match[1]}:${BACKEND_PORT}/api`;
+    if (match && match[1]) {
+      // Android Emulator host loopback
+      if (Platform.OS === 'android' && (match[1] === 'localhost' || match[1] === '127.0.0.1' || match[1] === '10.0.2.2')) {
+        return `http://10.0.2.2:${BACKEND_PORT}/api`;
+      }
+      if (match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+        return `http://${match[1]}:${BACKEND_PORT}/api`;
+      }
     }
   }
 
-  // 3. For physical mobile devices on Wi-Fi (Expo Go on iPhone & Android)
+  // 3. Android fallback
+  if (Platform.OS === 'android') {
+    return `http://${DEFAULT_LAN_IP}:${BACKEND_PORT}/api`;
+  }
+
+  // 4. Default LAN fallback for iOS / other
   return `http://${DEFAULT_LAN_IP}:${BACKEND_PORT}/api`;
 }
 

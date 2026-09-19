@@ -1,5 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { suggestSkills, getActiveRegisteredSkills, CANONICAL_SKILLS } from '../services/skillsService';
+import {
+  suggestSkills,
+  getActiveRegisteredSkills,
+  CANONICAL_SKILLS,
+  SKILL_CATEGORIES,
+  aiClassifyAndEnhanceSkill,
+} from '../services/skillsService';
 
 const router = Router();
 
@@ -24,7 +30,15 @@ router.get('/taxonomy', async (req: Request, res: Response) => {
   });
 });
 
-// POST /api/skills/suggest - Smart AI-powered suggestion & normalization
+// GET /api/skills/categories - Returns all standardized skill categories
+router.get('/categories', async (req: Request, res: Response) => {
+  return res.json({
+    ok: true,
+    data: SKILL_CATEGORIES,
+  });
+});
+
+// POST /api/skills/suggest - Fast keyword / semantic suggestion
 router.post('/suggest', async (req: Request, res: Response) => {
   try {
     const { query, locale } = req.body;
@@ -36,6 +50,24 @@ router.post('/suggest', async (req: Request, res: Response) => {
     return res.json({
       ok: true,
       data: suggestions,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: { message: err.message } });
+  }
+});
+
+// POST /api/skills/ai-classify - Deep Gemini AI dynamic detection & standardization
+router.post('/ai-classify', async (req: Request, res: Response) => {
+  try {
+    const { prompt, locale } = req.body;
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ ok: false, error: { message: 'Prompt string is required' } });
+    }
+
+    const classification = await aiClassifyAndEnhanceSkill(prompt.trim(), locale || 'fr');
+    return res.json({
+      ok: true,
+      data: classification,
     });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: { message: err.message } });
