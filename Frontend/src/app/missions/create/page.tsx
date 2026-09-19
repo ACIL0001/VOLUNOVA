@@ -21,6 +21,7 @@ import {
   Clock,
   MapPin,
   Flame,
+  Edit3,
 } from 'lucide-react';
 import { api, ExtractedNeedsResponse } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
@@ -188,14 +189,28 @@ export default function CreateMissionPage() {
       {extractedData && (
         <div className="surface-panel rounded-xl p-6 sm:p-8 animate-fade-up">
           <div className="flex flex-col md:flex-row md:items-start justify-between border-b border-[#d8e0ea] pb-5 mb-6 gap-4">
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-[#0d7a6f] mb-1">
                 <CheckCircle2 className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-wider">
                   {t('create_mission.extract_success')}
                 </span>
               </div>
-              <h2 className="text-2xl font-semibold text-[#0b1f3a]">{extractedData.title}</h2>
+              <div className="group relative">
+                <input
+                  type="text"
+                  value={extractedData.title}
+                  onChange={(e) => setExtractedData({ ...extractedData, title: e.target.value })}
+                  maxLength={120}
+                  className="w-full text-xl sm:text-2xl font-bold text-[#0b1f3a] bg-transparent hover:bg-slate-50 focus:bg-white border-b-2 border-dashed border-slate-300 focus:border-[#0d7a6f] focus:border-solid transition-all rounded-md px-1.5 py-1 outline-none"
+                  placeholder="Titre de la mission..."
+                  aria-label="Titre de la mission"
+                />
+                <p className="flex items-center gap-1 mt-1 text-[11px] text-[#5b6b7c]">
+                  <Edit3 className="h-3 w-3 text-[#0d7a6f]" />
+                  <span>{t('create_mission.editable_title_hint')}</span>
+                </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#5b6b7c]">
               <span className="inline-flex items-center gap-1 rounded-md border border-[#d8e0ea] bg-white px-2.5 py-1">

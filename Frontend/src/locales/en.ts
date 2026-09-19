@@ -89,6 +89,7 @@ export const en = {
     extract_btn: '🪄 Extract Requirements with AI',
     extracting: 'Extracting with Gemini AI...',
     extract_success: 'Extracted successfully via Google Gemini Live',
+    editable_title_hint: 'AI-generated title (click to edit if needed)',
     hours_tag: 'hours per volunteer',
     urgency_tag: 'Urgency',
     roles_title: 'Extracted Field Roles (Adjust headcounts or remove roles before publishing):',

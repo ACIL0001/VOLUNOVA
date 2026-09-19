@@ -89,6 +89,7 @@ export const fr = {
     extract_btn: '🪄 Extraire les Besoins avec l\'IA',
     extracting: 'Extraction par l\'IA en cours...',
     extract_success: 'Extraction réussie via l\'IA',
+    editable_title_hint: 'Titre généré par l\'IA (cliquez pour modifier si besoin)',
     hours_tag: 'heures estimées',
     urgency_tag: 'Urgence',
     roles_title: 'Rôles extraits (vous pouvez ajuster les effectifs ou supprimer des rôles avant de publier) :',
