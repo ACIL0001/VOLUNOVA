@@ -1,21 +1,27 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import { getBackendUrl } from '../config/apiConfig';
 
 // Configure foreground notification behavior (alert, sound, badge)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    priority: Notifications.AndroidNotificationPriority.HIGH,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+    }),
+  });
+} catch (e) {
+  console.warn('📱 [PushService] Notification handler init:', e);
+}
 
 /**
  * Requests push permissions and registers the Expo push token with the VOLUNOVA backend.
+ * Gracefully adapts between Expo Go (using local + socket notifications) and standalone/dev builds.
  */
 export async function registerPushNotifications(authToken: string): Promise<string | null> {
   // Push notifications only apply to native mobile devices
@@ -24,6 +30,22 @@ export async function registerPushNotifications(authToken: string): Promise<stri
   }
 
   try {
+    // Android notification channel configuration
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'VOLUNOVA Notifications',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#0D7A6F',
+          sound: 'default',
+        });
+      } catch (channelErr: any) {
+        console.warn('📱 [PushService] Android channel config:', channelErr.message);
+      }
+    }
+
+    // Request permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -33,23 +55,22 @@ export async function registerPushNotifications(authToken: string): Promise<stri
     }
 
     if (finalStatus !== 'granted') {
-      console.log('📱 [PushService] Push notification permission not granted by user.');
+      console.log('📱 [PushService] Notification permission not granted by user.');
       return null;
     }
 
-    // Android channel configuration
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'VOLUNOVA Notifications',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#0D7A6F',
-        sound: 'default',
-      });
+    // Expo SDK 53+ removed remote FCM push tokens from Expo Go client on Android.
+    // In Expo Go, real-time alerts are handled via Socket.IO + Local Notifications.
+    if (isRunningInExpoGo && isRunningInExpoGo() && Platform.OS === 'android') {
+      console.log(
+        '📱 [PushService] Running in Expo Go on Android. Remote FCM tokens require a development build. Utilizing real-time Socket.IO + Local Notifications for heads-up alerts.'
+      );
+      return null;
     }
 
+    // Standalone APK / Development Build / iOS
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: undefined, // Automatically resolved from app.json
+      projectId: undefined, // Resolved automatically
     });
 
     const pushToken = tokenData.data;
@@ -68,8 +89,38 @@ export async function registerPushNotifications(authToken: string): Promise<stri
 
     return pushToken;
   } catch (err: any) {
-    console.warn('📱 [PushService] Could not register push token:', err.message);
+    console.warn('📱 [PushService] Remote push token note:', err?.message || err);
     return null;
+  }
+}
+
+/**
+ * Displays a native local notification banner with sound and vibration on the phone.
+ * Works seamlessly in Expo Go, development builds, and production.
+ */
+export async function displayLocalNotification({
+  title,
+  body,
+  data,
+}: {
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+}) {
+  if (Platform.OS === 'web') return;
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: data || {},
+        sound: 'default',
+      },
+      trigger: null, // Deliver immediately
+    });
+  } catch (err: any) {
+    console.warn('📱 [PushService] Could not schedule local notification:', err.message);
   }
 }
 
@@ -80,27 +131,34 @@ export async function registerPushNotifications(authToken: string): Promise<stri
 export function setupPushNotificationTapListener(onOpenMission: (missionId: string) => void) {
   if (Platform.OS === 'web') return () => {};
 
-  // Check if app was opened by tapping a notification while closed
-  Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response) {
+  try {
+    // Check if app was opened by tapping a notification while closed
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          const data = response.notification.request.content.data as Record<string, any> | undefined;
+          if (data && typeof data.missionId === 'string') {
+            console.log('📱 [PushService] App opened from cold start by tapping notification:', data.missionId);
+            onOpenMission(data.missionId);
+          }
+        }
+      })
+      .catch((e) => console.warn('📱 [PushService] Cold start tap check:', e.message));
+
+    // Listener for taps while app was backgrounded or active
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, any> | undefined;
       if (data && typeof data.missionId === 'string') {
-        console.log('📱 [PushService] App opened from cold start by tapping push notification:', data.missionId);
+        console.log('📱 [PushService] User tapped notification for mission:', data.missionId);
         onOpenMission(data.missionId);
       }
-    }
-  });
+    });
 
-  // Listener for taps while app was backgrounded
-  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as Record<string, any> | undefined;
-    if (data && typeof data.missionId === 'string') {
-      console.log('📱 [PushService] User tapped notification for mission:', data.missionId);
-      onOpenMission(data.missionId);
-    }
-  });
-
-  return () => {
-    subscription.remove();
-  };
+    return () => {
+      subscription.remove();
+    };
+  } catch (err: any) {
+    console.warn('📱 [PushService] setupPushNotificationTapListener:', err.message);
+    return () => {};
+  }
 }

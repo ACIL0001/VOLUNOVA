@@ -17,7 +17,7 @@ import AuthScreen from './src/components/AuthScreen';
 import { AVAILABLE_SKILLS } from './src/components/SkillPickerModal';
 import NotificationsModal, { MobileNotification } from './src/components/NotificationsModal';
 import { subscribeVolunteerNotifications } from './src/services/mobileSocket';
-import { registerPushNotifications, setupPushNotificationTapListener } from './src/services/pushService';
+import { registerPushNotifications, setupPushNotificationTapListener, displayLocalNotification } from './src/services/pushService';
 import { getBackendUrl } from './src/config/apiConfig';
 
 const BACKEND_URL = getBackendUrl();
@@ -207,6 +207,18 @@ function VolunovaMobileApp() {
     const cleanupSocket = subscribeVolunteerNotifications(currentUser._id, (newNotif) => {
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((prev) => prev + 1);
+
+      // Trigger native phone notification banner with sound and vibration
+      const roleName = newNotif?.payload?.roleName || 'Bénévole';
+      const missionTitle = newNotif?.payload?.missionTitle || 'Mission';
+      displayLocalNotification({
+        title: '🎉 Sélectionné(e) pour une mission !',
+        body: `Vous avez été sélectionné(e) pour "${roleName}" sur "${missionTitle}". Touchez pour voir la mission.`,
+        data: {
+          missionId: newNotif?.payload?.missionId,
+          needId: newNotif?.payload?.needId,
+        },
+      });
     });
 
     return () => {
