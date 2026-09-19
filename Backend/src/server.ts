@@ -16,6 +16,11 @@ import statsRoutes from './routes/stats';
 import adminRoutes from './routes/admin';
 import skillsRoutes from './routes/skills';
 import supportRoutes from './routes/support';
+import squadRoutes from './routes/squads';
+import challengeRoutes from './routes/challenges';
+import neighborhoodRoutes from './routes/neighborhoods';
+import appreciationRoutes from './routes/appreciations';
+import impactCardRoutes from './routes/impactCard';
 
 const app = express();
 const server = http.createServer(app);
@@ -75,6 +80,11 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/squads', squadRoutes);
+app.use('/api/challenges', challengeRoutes);
+app.use('/api/neighborhoods', neighborhoodRoutes);
+app.use('/api/appreciations', appreciationRoutes);
+app.use('/api/impact-card', impactCardRoutes);
 
 // 404 Fallback
 app.use((req: Request, res: Response) => {

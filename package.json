@@ -10,6 +10,8 @@
     "build:frontend": "cd Frontend && npm install && npm run build",
     "build": "cd Backend && npm install && npm run build",
     "start": "cd Backend && npm start"
+  },
+  "devDependencies": {
+    "pptxgenjs": "^4.0.1"
   }
 }
-

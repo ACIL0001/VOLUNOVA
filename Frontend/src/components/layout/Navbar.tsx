@@ -25,6 +25,8 @@ import {
   Home,
   Globe,
   Check,
+  Award,
+  MapPin,
 } from 'lucide-react';
 import { api, NotificationItem } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
@@ -191,6 +193,8 @@ export default function Navbar() {
   const mainLinks = [
     { name: t('nav.home'), href: '/', icon: Compass },
     { name: t('nav.browse'), href: '/missions/browse', icon: LayoutDashboard },
+    { name: locale === 'ar' ? 'حائط الأثر 🇩🇿' : locale === 'fr' ? 'Mur d’Impact 🇩🇿' : 'Wall of Impact 🇩🇿', href: '/wall-of-impact', icon: Award },
+    { name: locale === 'ar' ? 'تحدي الحومة' : locale === 'fr' ? 'Défi Quartier' : 'Neighborhood Hub', href: '/neighborhood/bab-ezzouar', icon: MapPin },
     { name: t('nav.about'), href: '/about', icon: Info },
     { name: t('nav.help'), href: '/aide', icon: CircleHelp },
     { name: t('nav.contact'), href: '/contact', icon: Phone },

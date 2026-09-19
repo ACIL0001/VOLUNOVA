@@ -473,6 +473,90 @@ class ApiService {
       body: JSON.stringify({ prompt, locale }),
     });
   }
+
+  // 10. Civic Recognitions, Squads, Challenges & Neighborhoods
+  async getWallOfImpact(): Promise<any[]> {
+    return this.request<any[]>('/impact-card/wall-of-impact');
+  }
+
+  async getNeighborhood(slug: string): Promise<any> {
+    return this.request<any>(`/neighborhoods/${slug}`);
+  }
+
+  async getSupportedNeighborhoods(): Promise<any[]> {
+    return this.request<any[]>('/neighborhoods');
+  }
+
+  async getChallenges(neighborhood?: string): Promise<any[]> {
+    const q = neighborhood ? `?neighborhood=${encodeURIComponent(neighborhood)}` : '';
+    return this.request<any[]>(`/challenges${q}`);
+  }
+
+  async getMySquad(): Promise<any> {
+    return this.request<any>('/squads/my');
+  }
+
+  async createSquad(data: { name: string; avatar?: string; neighborhood?: string }): Promise<any> {
+    return this.request<any>('/squads', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async joinSquad(inviteCode: string): Promise<any> {
+    return this.request<any>('/squads/join', {
+      method: 'POST',
+      body: JSON.stringify({ inviteCode }),
+    });
+  }
+
+  async leaveSquad(): Promise<any> {
+    return this.request<any>('/squads/leave', {
+      method: 'POST',
+    });
+  }
+
+  async sendAppreciation(data: {
+    missionId: string;
+    toUserId: string;
+    kind: string;
+    note?: string;
+  }): Promise<any> {
+    return this.request<any>('/appreciations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getMyAppreciations(): Promise<any> {
+    return this.request<any>('/appreciations/my');
+  }
+
+  async getImpactCard(userId: string): Promise<any> {
+    return this.request<any>(`/impact-card/user/${userId}`);
+  }
+
+  async completeMissionWithStory(
+    missionId: string,
+    data: {
+      headline: string;
+      summary: string;
+      photos?: string[];
+      treesPlanted?: number;
+      familiesAssisted?: number;
+      wasteCollectedKg?: number;
+      beneficiariesCount?: number;
+    }
+  ): Promise<any> {
+    return this.request<any>(`/missions/${missionId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getMissionOutcomeStory(missionId: string): Promise<any> {
+    return this.request<any>(`/missions/${missionId}/outcome-story`);
+  }
 }
 
 export const api = new ApiService();

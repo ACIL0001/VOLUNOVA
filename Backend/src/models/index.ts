@@ -31,6 +31,35 @@ const UserSchema = new Schema({
   pushTokens: [{ type: String, select: false }],
   failedLoginAttempts: { type: Number, default: 0, select: false },
   lockUntil: { type: Date, select: false },
+
+  // CIVIC MOTIVATION & RECOGNITION ENGINE (Levels 1-5, Squads, Appreciations)
+  statusTier: {
+    type: String,
+    enum: ['level_1_new', 'level_2_active', 'level_3_trusted', 'level_4_leader', 'level_5_impact_maker'],
+    default: 'level_1_new',
+    index: true,
+  },
+  motivations: [{ type: String, trim: true }],
+  neighborhood: { type: String, default: 'Bab Ezzouar', trim: true, index: true },
+  squadId: { type: Schema.Types.ObjectId, ref: 'Squad', default: null, index: true },
+  referredBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  referralsCompletedCount: { type: Number, default: 0, min: 0 },
+  appreciationsReceived: {
+    thankYou: { type: Number, default: 0 },
+    teamSpirit: { type: Number, default: 0 },
+    vitalRole: { type: Number, default: 0 },
+    problemSolver: { type: Number, default: 0 },
+    mostReliable: { type: Number, default: 0 },
+    creative: { type: Number, default: 0 },
+    rapidResponder: { type: Number, default: 0 },
+  },
+  qualitativeBadges: [{
+    type: { type: String, required: true },
+    labelAr: { type: String, required: true },
+    labelFr: { type: String, required: true },
+    awardedAt: { type: Date, default: Date.now },
+    missionTitle: { type: String, default: '' },
+  }],
 }, { timestamps: true });
 
 UserSchema.index({ location: '2dsphere' });
@@ -86,6 +115,21 @@ const MissionSchema = new Schema({
   completedAt: { type: Date },
   cancelledAt: { type: Date },
   cancelReason: { type: String, trim: true, maxlength: 500 },
+
+  // NEIGHBORHOOD & TANGIBLE IMPACT STORIES
+  neighborhood: { type: String, default: 'Bab Ezzouar', trim: true, index: true },
+  impactMetrics: {
+    treesPlanted: { type: Number, default: 0 },
+    familiesAssisted: { type: Number, default: 0 },
+    wasteCollectedKg: { type: Number, default: 0 },
+    beneficiariesCount: { type: Number, default: 0 },
+  },
+  outcomeStory: {
+    headline: { type: String, default: '', trim: true },
+    summary: { type: String, default: '', trim: true },
+    photos: [{ type: String }],
+    publishedAt: { type: Date },
+  },
 }, { timestamps: true });
 
 MissionSchema.index({ location: '2dsphere' });
@@ -199,6 +243,81 @@ const SupportTicketSchema = new Schema({
 
 SupportTicketSchema.index({ status: 1, createdAt: -1 });
 
+// 10. SQUAD SCHEMA — Friends Volunteering Together
+const SquadSchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 100 },
+  avatar: { type: String, default: 'users' },
+  leaderId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  neighborhood: { type: String, default: 'Bab Ezzouar', trim: true, index: true },
+  city: { type: String, default: 'Algiers', trim: true },
+  missionsCompletedCount: { type: Number, default: 0, min: 0 },
+  totalImpactHours: { type: Number, default: 0, min: 0 },
+  treesPlanted: { type: Number, default: 0, min: 0 },
+  familiesHelped: { type: Number, default: 0, min: 0 },
+  inviteCode: { type: String, required: true, unique: true, uppercase: true, trim: true, index: true },
+}, { timestamps: true });
+
+SquadSchema.index({ neighborhood: 1, totalImpactHours: -1 });
+
+// 11. COMMUNITY CHALLENGE SCHEMA — Collective Municipal Goals ("تحدي الحي")
+const CommunityChallengeSchema = new Schema({
+  titleAr: { type: String, required: true, trim: true },
+  titleFr: { type: String, required: true, trim: true },
+  descriptionAr: { type: String, default: '', trim: true },
+  descriptionFr: { type: String, default: '', trim: true },
+  category: {
+    type: String,
+    enum: ['trees', 'families', 'blood_donation', 'cleanup', 'education'],
+    required: true,
+    index: true,
+  },
+  targetQuantity: { type: Number, required: true, min: 1 },
+  currentQuantity: { type: Number, default: 0, min: 0 },
+  neighborhood: { type: String, default: 'Bab Ezzouar', trim: true, index: true },
+  city: { type: String, default: 'Algiers', trim: true },
+  startDate: { type: Date, default: Date.now },
+  endDate: { type: Date },
+  status: {
+    type: String,
+    enum: ['active', 'completed', 'archived'],
+    default: 'active',
+    index: true,
+  },
+  celebrationPost: {
+    victoryTitle: { type: String, default: '' },
+    victoryMessage: { type: String, default: '' },
+    completedAt: { type: Date },
+    totalParticipants: { type: Number, default: 0 },
+  },
+}, { timestamps: true });
+
+CommunityChallengeSchema.index({ neighborhood: 1, status: 1 });
+
+// 12. APPRECIATION SCHEMA — Real Human Gratitude From Peers & Organizers
+const AppreciationSchema = new Schema({
+  missionId: { type: Schema.Types.ObjectId, ref: 'Mission', required: true, index: true },
+  fromUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  toUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  kind: {
+    type: String,
+    enum: [
+      'thank_you',
+      'team_spirit',
+      'vital_role',
+      'problem_solver',
+      'most_reliable',
+      'creative',
+      'rapid_responder',
+    ],
+    required: true,
+  },
+  note: { type: String, trim: true, maxlength: 500, default: '' },
+}, { timestamps: true });
+
+AppreciationSchema.index({ missionId: 1, fromUserId: 1, toUserId: 1 }, { unique: true });
+AppreciationSchema.index({ toUserId: 1, createdAt: -1 });
+
 export const User = models.User || model('User', UserSchema);
 export const Organization = models.Organization || model('Organization', OrganizationSchema);
 export const Mission = models.Mission || model('Mission', MissionSchema);
@@ -208,3 +327,6 @@ export const Notification = models.Notification || model('Notification', Notific
 export const Review = models.Review || model('Review', ReviewSchema);
 export const AuditLog = models.AuditLog || model('AuditLog', AuditLogSchema);
 export const SupportTicket = models.SupportTicket || model('SupportTicket', SupportTicketSchema);
+export const Squad = models.Squad || model('Squad', SquadSchema);
+export const CommunityChallenge = models.CommunityChallenge || model('CommunityChallenge', CommunityChallengeSchema);
+export const Appreciation = models.Appreciation || model('Appreciation', AppreciationSchema);

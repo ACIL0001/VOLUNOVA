@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { Mission, MissionNeed, Application, User, Organization, Notification } from '../models';
+import { Mission, MissionNeed, Application, User, Organization, Notification, Squad, CommunityChallenge } from '../models';
 import { authenticateToken, optionalToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { rateLimit } from '../middleware/rateLimit';
@@ -10,6 +10,7 @@ import { logAuditEvent } from '../services/auditLogger';
 import { sendMissionAcceptedEmail } from '../services/emailService';
 import { emitToUser, emitToMission } from '../config/socket';
 import { sendExpoPushNotification } from '../services/pushNotifier';
+import { evaluateUserStatus } from '../services/statusService';
 
 const router = Router();
 
@@ -640,5 +641,184 @@ router.patch(
     }
   }
 );
+
+// POST /api/missions/:id/complete — Finalize mission, log real outcome metrics, and broadcast Impact Story
+router.post(
+  '/:id/complete',
+  authenticateToken,
+  requireRole(['organization', 'admin']),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { headline, summary, photos, treesPlanted, familiesAssisted, wasteCollectedKg, beneficiariesCount } = req.body;
+
+      const mission = await Mission.findById(id);
+      if (!mission) {
+        return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Mission non trouvée' } });
+      }
+
+      mission.status = 'completed';
+      mission.completedAt = new Date();
+
+      mission.impactMetrics = {
+        treesPlanted: Number(treesPlanted) || 0,
+        familiesAssisted: Number(familiesAssisted) || 0,
+        wasteCollectedKg: Number(wasteCollectedKg) || 0,
+        beneficiariesCount: Number(beneficiariesCount) || 0,
+      };
+
+      mission.outcomeStory = {
+        headline: headline ? String(headline).trim() : 'مهمة تطوعية ناجحة أحدثت أثراً حقيقياً ❤️',
+        summary: summary ? String(summary).trim() : 'شكراً لجميع المتطوعين الذين شاركوا في صنع هذا الأثر الميداني.',
+        photos: Array.isArray(photos) ? photos : [],
+        publishedAt: new Date(),
+      };
+
+      await mission.save();
+
+      // Find all volunteers who applied and were accepted
+      const applications = await Application.find({
+        missionId: mission._id,
+        status: { $in: ['accepted', 'attended'] },
+      });
+
+      const hours = mission.estimatedHoursPerVolunteer || 4;
+
+      for (const app of applications) {
+        if (app.status !== 'attended') {
+          app.status = 'attended';
+          await app.save();
+        }
+
+        const volunteer = await User.findById(app.volunteerId).select('+pushTokens');
+        if (!volunteer) continue;
+
+        // Check if this was their first mission and they were referred
+        if (volunteer.referredBy) {
+          const pastAttended = await Application.countDocuments({
+            volunteerId: volunteer._id,
+            status: 'attended',
+          });
+          if (pastAttended === 1) {
+            // First mission completed! Reward referrer
+            const referrer = await User.findById(volunteer.referredBy);
+            if (referrer) {
+              referrer.referralsCompletedCount = (referrer.referralsCompletedCount || 0) + 1;
+              await referrer.save();
+              await evaluateUserStatus(referrer._id.toString());
+
+              await Notification.create({
+                userId: referrer._id,
+                type: 'slot_fulfilled',
+                payload: {
+                  title: '🤝 وسام باني المجتمع في انتظارك!',
+                  message: `أكمل صديقك المدعو أول مهمة ميدانية له بنجاح!`,
+                },
+                channel: 'in_app',
+              });
+            }
+          }
+        }
+
+        // Re-evaluate volunteer level status
+        await evaluateUserStatus(volunteer._id.toString());
+
+        // Update squad impact if volunteer belongs to a squad
+        if (volunteer.squadId) {
+          await Squad.findByIdAndUpdate(volunteer.squadId, {
+            $inc: {
+              missionsCompletedCount: 1,
+              totalImpactHours: hours,
+              treesPlanted: mission.impactMetrics.treesPlanted,
+              familiesHelped: mission.impactMetrics.familiesAssisted,
+            },
+          });
+        }
+
+        // Notify volunteer with the emotional impact story
+        const notifDoc = await Notification.create({
+          userId: volunteer._id,
+          type: 'slot_fulfilled',
+          payload: {
+            missionId: mission._id,
+            title: 'أنت ساهمت في تحقيق هذا ❤️',
+            message: mission.outcomeStory.headline,
+            outcomeHeadline: mission.outcomeStory.headline,
+            outcomeSummary: mission.outcomeStory.summary,
+          },
+          channel: 'in_app',
+        });
+
+        emitToUser(volunteer._id, 'notification:new', { notification: notifDoc });
+
+        if (volunteer.pushTokens && volunteer.pushTokens.length > 0) {
+          sendExpoPushNotification({
+            pushTokens: volunteer.pushTokens,
+            title: 'أنت ساهمت في تحقيق هذا ❤️',
+            body: mission.outcomeStory.headline,
+            data: {
+              missionId: mission._id.toString(),
+              type: 'outcome_story',
+            },
+          }).catch(() => {});
+        }
+      }
+
+      // If active Community Challenge in this neighborhood, update progress
+      if (mission.neighborhood) {
+        const matchingChallenge = await CommunityChallenge.findOne({
+          $or: [
+            { neighborhood: { $regex: new RegExp(mission.neighborhood, 'i') } },
+            { neighborhood: 'All' },
+          ],
+          status: 'active',
+        });
+
+        if (matchingChallenge) {
+          let delta = 1;
+          if (matchingChallenge.category === 'trees' && mission.impactMetrics.treesPlanted > 0) {
+            delta = mission.impactMetrics.treesPlanted;
+          } else if (matchingChallenge.category === 'families' && mission.impactMetrics.familiesAssisted > 0) {
+            delta = mission.impactMetrics.familiesAssisted;
+          }
+
+          matchingChallenge.currentQuantity = Math.min(
+            matchingChallenge.targetQuantity,
+            matchingChallenge.currentQuantity + delta
+          );
+          if (matchingChallenge.currentQuantity >= matchingChallenge.targetQuantity) {
+            matchingChallenge.status = 'completed';
+            matchingChallenge.celebrationPost = {
+              victoryTitle: `🎉 نحن فعلناها! إنجاز ${matchingChallenge.titleAr}`,
+              victoryMessage: `بجهود سواعد المتطوعين في ${mission.neighborhood}، تم تحقيق الهدف بنجاح!`,
+              completedAt: new Date(),
+              totalParticipants: applications.length,
+            };
+          }
+          await matchingChallenge.save();
+        }
+      }
+
+      return res.json({ ok: true, data: mission });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    }
+  }
+);
+
+// GET /api/missions/:id/outcome-story — Retrieve mission's impact story
+router.get('/:id/outcome-story', async (req: Request, res: Response) => {
+  try {
+    const mission = await Mission.findById(req.params.id).select(
+      'title category venueName neighborhood completedAt impactMetrics outcomeStory'
+    );
+    if (!mission) {
+      return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Mission introuvable' } });
+    }
+    return res.json({ ok: true, data: mission });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
 
 export default router;

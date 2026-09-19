@@ -37,7 +37,7 @@ router.post(
   validateBody(SignupSchema),
   async (req: Request, res: Response) => {
     try {
-      const { name, email, password, role, skills, city, phone, orgName, category } = req.body;
+      const { name, email, password, role, skills, orgName, city, phone, category, motivations, neighborhood, referredBy } = req.body;
 
       const categoryNormalized = Array.isArray(category)
         ? category.map((c: string) => String(c).trim()).filter(Boolean).join(', ')
@@ -81,6 +81,17 @@ router.post(
         ? Array.from(new Set(skills.map((s: string) => normalizeSkillToBracketFormat(String(s).trim())).filter(Boolean)))
         : [];
 
+      let referrerUser = null;
+      if (referredBy && typeof referredBy === 'string' && referredBy.trim()) {
+        const refClean = referredBy.trim();
+        referrerUser = await User.findOne({
+          $or: [
+            { _id: refClean.match(/^[0-9a-fA-F]{24}$/) ? refClean : null },
+            { email: refClean.toLowerCase() },
+          ],
+        });
+      }
+
       const user = await User.create({
         name,
         email,
@@ -89,6 +100,10 @@ router.post(
         skills: role === 'volunteer' ? cleanedSkills : [],
         city: city || 'Algiers',
         phone: phone || '',
+        neighborhood: neighborhood || 'Bab Ezzouar',
+        motivations: Array.isArray(motivations) ? motivations : [],
+        referredBy: referrerUser ? referrerUser._id : null,
+        statusTier: 'level_1_new',
       });
 
       let organization = null;
@@ -121,9 +136,16 @@ router.post(
             role: user.role,
             avatar: user.avatar,
             city: user.city,
+            neighborhood: user.neighborhood || 'Bab Ezzouar',
+            motivations: user.motivations || [],
+            statusTier: user.statusTier || 'level_1_new',
+            squadId: user.squadId || null,
             skills: user.skills,
             impactHours: user.impactHours,
             reliabilityScore: user.reliabilityScore,
+            appreciationsReceived: user.appreciationsReceived || {},
+            qualitativeBadges: user.qualitativeBadges || [],
+            referralsCompletedCount: user.referralsCompletedCount || 0,
           },
           organization,
         },
@@ -197,9 +219,16 @@ router.post(
             role: user.role,
             avatar: user.avatar,
             city: user.city,
+            neighborhood: user.neighborhood || 'Bab Ezzouar',
+            motivations: user.motivations || [],
+            statusTier: user.statusTier || 'level_1_new',
+            squadId: user.squadId || null,
             skills: user.skills,
             impactHours: user.impactHours,
             reliabilityScore: user.reliabilityScore,
+            appreciationsReceived: user.appreciationsReceived || {},
+            qualitativeBadges: user.qualitativeBadges || [],
+            referralsCompletedCount: user.referralsCompletedCount || 0,
           },
           organization,
         },
@@ -231,10 +260,17 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
           role: user.role,
           avatar: user.avatar,
           city: user.city,
+          neighborhood: user.neighborhood || 'Bab Ezzouar',
+          motivations: user.motivations || [],
+          statusTier: user.statusTier || 'level_1_new',
+          squadId: user.squadId || null,
           skills: user.skills,
           impactHours: user.impactHours,
           reliabilityScore: user.reliabilityScore,
           bio: user.bio,
+          appreciationsReceived: user.appreciationsReceived || {},
+          qualitativeBadges: user.qualitativeBadges || [],
+          referralsCompletedCount: user.referralsCompletedCount || 0,
           createdAt: user.createdAt,
         },
         organization,
@@ -280,6 +316,8 @@ router.patch('/profile', authenticateToken, async (req: AuthenticatedRequest, re
     if (user.role === 'volunteer' && Array.isArray(skills)) {
       user.skills = Array.from(new Set(skills.map((s: any) => normalizeSkillToBracketFormat(String(s).trim())).filter(Boolean)));
     }
+    if (typeof req.body.neighborhood === 'string') user.neighborhood = req.body.neighborhood.trim();
+    if (Array.isArray(req.body.motivations)) user.motivations = req.body.motivations;
 
     await user.save();
 
@@ -321,10 +359,17 @@ router.patch('/profile', authenticateToken, async (req: AuthenticatedRequest, re
           role: user.role,
           avatar: user.avatar,
           city: user.city,
+          neighborhood: user.neighborhood || 'Bab Ezzouar',
+          motivations: user.motivations || [],
+          statusTier: user.statusTier || 'level_1_new',
+          squadId: user.squadId || null,
           skills: user.skills,
           impactHours: user.impactHours,
           reliabilityScore: user.reliabilityScore,
           bio: user.bio,
+          appreciationsReceived: user.appreciationsReceived || {},
+          qualitativeBadges: user.qualitativeBadges || [],
+          referralsCompletedCount: user.referralsCompletedCount || 0,
         },
         organization,
       },
