@@ -84,8 +84,8 @@ export default function CreateMissionPage() {
     try {
       const data = await api.extractNeeds(text);
       setExtractedData(data);
-    } catch {
-      setError(t('create_mission.error_extract'));
+    } catch (err: any) {
+      setError(err?.message || t('create_mission.error_extract'));
     } finally {
       setExtracting(false);
     }
