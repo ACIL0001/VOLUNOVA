@@ -9,8 +9,10 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { Search, Sparkles, X } from 'lucide-react-native';
 import { useTranslation } from '../context/LanguageContext';
 import { getBackendUrl } from '../config/apiConfig';
+import { civic, civicShadow } from '../theme/civic';
 
 export interface SkillOption {
   id: string;
@@ -54,7 +56,7 @@ export default function SkillPickerModal({
   const [aiSuggestion, setAiSuggestion] = useState<SkillOption | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const backendUrl = getBackendUrl();
-  const debounceTimer = useRef<any>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getSkillLabel = (item: SkillOption) => {
     if (locale === 'ar') return item.nameAr;
@@ -62,7 +64,6 @@ export default function SkillPickerModal({
     return item.nameEn;
   };
 
-  // Debounced search to backend smart suggestion engine
   useEffect(() => {
     if (!searchText.trim() || searchText.trim().length < 2) {
       setAiSuggestion(null);
@@ -82,15 +83,13 @@ export default function SkillPickerModal({
           body: JSON.stringify({ query: searchText.trim(), locale }),
         });
         const data = await res.json();
-        if (data.ok && data.data) {
-          if (data.data.aiSuggestion) {
-            const match = AVAILABLE_SKILLS.find((s) => s.id === data.data.aiSuggestion.id);
-            setAiSuggestion(match || null);
-            setAiExplanation(data.data.aiExplanation || null);
-          } else {
-            setAiSuggestion(null);
-            setAiExplanation(null);
-          }
+        if (data.ok && data.data?.aiSuggestion) {
+          const match = AVAILABLE_SKILLS.find((s) => s.id === data.data.aiSuggestion.id);
+          setAiSuggestion(match || null);
+          setAiExplanation(data.data.aiExplanation || null);
+        } else {
+          setAiSuggestion(null);
+          setAiExplanation(null);
         }
       } catch (e) {
         console.warn('Smart skill search error:', e);
@@ -104,7 +103,6 @@ export default function SkillPickerModal({
     };
   }, [searchText, locale, backendUrl]);
 
-  // Local filtering across titles and categories
   const filteredSkills = AVAILABLE_SKILLS.filter((item) => {
     const q = searchText.toLowerCase().trim();
     if (!q) return true;
@@ -119,139 +117,72 @@ export default function SkillPickerModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={[styles.headerRow, { flexDirection }]}>
-              <Text style={[styles.title, { textAlign }]}>{t('auth.selectSkillsBtn')}</Text>
-              <View
-                style={[
-                  styles.countBadge,
-                  selectedSkills.length > 0 ? styles.countBadgeValid : styles.countBadgeWarn,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.countBadgeText,
-                    selectedSkills.length > 0 ? styles.countBadgeTextValid : styles.countBadgeTextWarn,
-                  ]}
-                >
-                  {selectedSkills.length > 0
-                    ? `✓ ${selectedSkills.length} ${t('auth.selectedCount')}`
-                    : `⚠️ ${t('auth.skillsRequiredBadge')}`}
-                </Text>
-              </View>
+      <View style={styles.overlay}>
+        <View style={styles.card}>
+          <View style={[styles.headerRow, { flexDirection }]}>
+            <Text style={[styles.title, { textAlign }]}>{t('auth.selectSkillsBtn')}</Text>
+            <View style={[styles.count, selectedSkills.length ? styles.countOk : styles.countWarn]}>
+              <Text style={[styles.countText, { color: selectedSkills.length ? civic.success : civic.danger }]}>
+                {selectedSkills.length > 0
+                  ? `✓ ${selectedSkills.length} ${t('auth.selectedCount')}`
+                  : t('auth.skillsRequiredBadge')}
+              </Text>
             </View>
-            <Text style={[styles.subtitle, { textAlign }]}>{t('auth.skillsHint')}</Text>
           </View>
+          <Text style={[styles.subtitle, { textAlign }]}>{t('auth.skillsHint')}</Text>
 
-          {/* Smart AI Search Input */}
-          <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
+          <View style={styles.search}>
+            <Search size={16} color={civic.muted} />
             <TextInput
               style={[styles.searchInput, { textAlign }]}
               placeholder={t('auth.smartSearchPlaceholder')}
-              placeholderTextColor="#64748B"
+              placeholderTextColor={civic.muted2}
               value={searchText}
               onChangeText={setSearchText}
               autoCapitalize="none"
-              autoCorrect={false}
             />
             {isSearching ? (
-              <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 6 }} />
+              <ActivityIndicator size="small" color={civic.teal} />
             ) : searchText.length > 0 ? (
-              <TouchableOpacity onPress={() => setSearchText('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.clearSearchText}>✕</Text>
+              <TouchableOpacity onPress={() => setSearchText('')}>
+                <X size={14} color={civic.muted} />
               </TouchableOpacity>
             ) : null}
           </View>
 
-          <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
-            {/* AI Smart Suggestion Card (e.g. for "fix walls" -> "Maçonnerie & Bâtiment") */}
+          <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
             {aiSuggestion && (
-              <View style={styles.aiSuggestionBox}>
-                <View style={styles.aiHeaderRow}>
+              <View style={styles.aiBox}>
+                <View style={styles.aiHead}>
+                  <Sparkles size={14} color={civic.teal} />
                   <Text style={styles.aiTitle}>{t('auth.aiSuggestedTitle')}</Text>
-                  <Text style={styles.aiBadge}>AI Engine</Text>
                 </View>
-                {aiExplanation ? (
-                  <Text style={styles.aiExplanationText}>{aiExplanation}</Text>
-                ) : (
-                  <Text style={styles.aiExplanationText}>{t('auth.aiSuggestionHint')}</Text>
-                )}
-
+                <Text style={styles.aiHint}>{aiExplanation || t('auth.aiSuggestionHint')}</Text>
                 <TouchableOpacity
-                  activeOpacity={0.8}
                   onPress={() => onToggleSkill(aiSuggestion.id)}
                   style={[
-                    styles.aiChipButton,
-                    selectedSkills.includes(aiSuggestion.id) && styles.aiChipButtonSelected,
+                    styles.aiChip,
+                    selectedSkills.includes(aiSuggestion.id) && { backgroundColor: civic.teal },
                   ]}
                 >
-                  <Text style={styles.chipIcon}>{aiSuggestion.icon}</Text>
-                  <Text style={styles.aiChipText}>{getSkillLabel(aiSuggestion)}</Text>
-                  <Text style={styles.aiCheckMark}>
-                    {selectedSkills.includes(aiSuggestion.id) ? '✓ Sélectionné' : '+ Ajouter'}
+                  <Text style={[styles.chipText, selectedSkills.includes(aiSuggestion.id) && { color: civic.white }]}>
+                    {aiSuggestion.icon} {getSkillLabel(aiSuggestion)}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Selected Skills Chips Strip */}
-            {selectedSkills.length > 0 && (
-              <View style={styles.selectedSection}>
-                <Text style={[styles.sectionLabel, { textAlign }]}>
-                  {t('auth.selectedCount').toUpperCase()} ({selectedSkills.length}) :
-                </Text>
-                <View style={styles.selectedRow}>
-                  {selectedSkills.map((id) => {
-                    const skill = AVAILABLE_SKILLS.find((s) => s.id === id);
-                    return (
-                      <TouchableOpacity
-                        key={id}
-                        activeOpacity={0.7}
-                        onPress={() => onToggleSkill(id)}
-                        style={styles.selectedPill}
-                      >
-                        <Text style={styles.selectedPillIcon}>{skill?.icon || '⭐'}</Text>
-                        <Text style={styles.selectedPillText}>
-                          {skill ? getSkillLabel(skill) : id}
-                        </Text>
-                        <Text style={styles.selectedPillRemove}>✕</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Standard Canonical Skills Grid */}
-            <Text style={[styles.sectionLabel, { textAlign, marginTop: 12 }]}>
-              {t('auth.allCategories')} ({filteredSkills.length}) :
-            </Text>
-
-            <View style={styles.skillsGrid}>
+            <View style={styles.grid}>
               {filteredSkills.map((item) => {
-                const isSelected = selectedSkills.includes(item.id);
+                const selected = selectedSkills.includes(item.id);
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    activeOpacity={0.8}
                     onPress={() => onToggleSkill(item.id)}
-                    style={[
-                      styles.chip,
-                      isSelected ? styles.chipSelected : styles.chipUnselected,
-                    ]}
+                    style={[styles.chip, selected && styles.chipOn]}
                   >
-                    <Text style={styles.chipIcon}>{item.icon}</Text>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        isSelected ? styles.chipTextSelected : styles.chipTextUnselected,
-                      ]}
-                    >
-                      {getSkillLabel(item)}
+                    <Text style={[styles.chipText, selected && styles.chipTextOn]}>
+                      {item.icon} {getSkillLabel(item)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -259,17 +190,12 @@ export default function SkillPickerModal({
             </View>
           </ScrollView>
 
-          {/* Confirm Button */}
           <TouchableOpacity
-            activeOpacity={0.85}
             onPress={onClose}
             disabled={selectedSkills.length === 0}
-            style={[
-              styles.confirmBtn,
-              selectedSkills.length === 0 && styles.confirmBtnDisabled,
-            ]}
+            style={[styles.confirm, selectedSkills.length === 0 && styles.confirmOff]}
           >
-            <Text style={styles.confirmBtnText}>
+            <Text style={styles.confirmText}>
               {selectedSkills.length === 0
                 ? t('auth.skillsRequiredBadge')
                 : `${t('auth.saveSkills')} (${selectedSkills.length})`}
@@ -282,252 +208,80 @@ export default function SkillPickerModal({
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(2, 6, 18, 0.88)',
+    backgroundColor: civic.overlay,
     justifyContent: 'flex-end',
   },
-  modalCard: {
-    backgroundColor: '#0A1224',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  card: {
+    backgroundColor: civic.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#1E2B4D',
-    padding: 20,
+    borderColor: civic.border,
+    padding: 18,
     maxHeight: '88%',
+    ...civicShadow.raised,
   },
-  header: {
-    marginBottom: 12,
-  },
-  headerRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  countBadgeValid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10B981',
-  },
-  countBadgeWarn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#EF4444',
-  },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  countBadgeTextValid: {
-    color: '#10B981',
-  },
-  countBadgeTextWarn: {
-    color: '#F87171',
-  },
-  subtitle: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  searchContainer: {
+  headerRow: { justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  title: { color: civic.navy, fontSize: 17, fontWeight: '800' },
+  count: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  countOk: { backgroundColor: civic.successBg, borderColor: civic.successBorder },
+  countWarn: { backgroundColor: civic.dangerBg, borderColor: civic.dangerBorder },
+  countText: { fontSize: 10, fontWeight: '800' },
+  subtitle: { color: civic.muted, fontSize: 11, marginBottom: 12 },
+  search: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111A30',
+    gap: 8,
+    backgroundColor: civic.bgSoft,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#253761',
+    borderColor: civic.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
   },
-  searchIcon: {
-    fontSize: 14,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 13,
-    paddingVertical: 2,
-  },
-  clearSearchText: {
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: 'bold',
-    paddingHorizontal: 6,
-  },
-  scrollArea: {
-    maxHeight: 380,
-  },
-  aiSuggestionBox: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+  searchInput: { flex: 1, color: civic.navy, fontSize: 13, paddingVertical: 2 },
+  scroll: { maxHeight: 380 },
+  aiBox: {
+    backgroundColor: civic.tealSoft,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
+    borderWidth: 1,
+    borderColor: 'rgba(13,122,111,0.3)',
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  aiHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  aiTitle: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  aiBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.25)',
-    color: '#BAE6FD',
-    fontSize: 9,
-    fontWeight: 'bold',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  aiExplanationText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    marginBottom: 10,
-  },
-  aiChipButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F274A',
+  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  aiTitle: { color: civic.teal, fontSize: 13, fontWeight: '800' },
+  aiHint: { color: civic.navySoft, fontSize: 11, marginBottom: 8 },
+  aiChip: {
+    backgroundColor: civic.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#38BDF8',
+    borderColor: civic.teal,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    gap: 8,
   },
-  aiChipButtonSelected: {
-    backgroundColor: '#10B981',
-    borderColor: '#34D399',
-  },
-  aiChipText: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  aiCheckMark: {
-    color: '#BAE6FD',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  selectedSection: {
-    marginBottom: 12,
-    backgroundColor: '#0C1630',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#1E2B4D',
-  },
-  sectionLabel: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  selectedRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  selectedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
-    borderColor: '#3B82F6',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 5,
-  },
-  selectedPillIcon: {
-    fontSize: 12,
-  },
-  selectedPillText: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  selectedPillRemove: {
-    color: '#F87171',
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginLeft: 2,
-  },
-  skillsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingVertical: 6,
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    backgroundColor: civic.bgSoft,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: 10,
     paddingHorizontal: 11,
     paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
   },
-  chipUnselected: {
-    backgroundColor: '#111A30',
-    borderColor: '#1E2B4D',
-  },
-  chipSelected: {
-    backgroundColor: '#1D4ED8',
-    borderColor: '#60A5FA',
-  },
-  chipIcon: {
-    fontSize: 15,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipTextUnselected: {
-    color: '#CBD5E1',
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  confirmBtn: {
-    marginTop: 16,
-    backgroundColor: '#2563EB',
+  chipOn: { backgroundColor: civic.teal, borderColor: civic.teal },
+  chipText: { color: civic.navy, fontSize: 12, fontWeight: '600' },
+  chipTextOn: { color: civic.white, fontWeight: '800' },
+  confirm: {
+    marginTop: 14,
+    backgroundColor: civic.teal,
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  confirmBtnDisabled: {
-    backgroundColor: '#1E293B',
-    shadowOpacity: 0,
-    opacity: 0.6,
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
+  confirmOff: { backgroundColor: civic.border, opacity: 0.7 },
+  confirmText: { color: civic.white, fontSize: 13, fontWeight: '800' },
 });

@@ -1,31 +1,56 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  HeartHandshake,
+  Lock,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  User,
+  UserPlus,
+} from 'lucide-react-native';
 import { useTranslation } from '../context/LanguageContext';
 import MobileLanguagePicker from './MobileLanguagePicker';
 import SkillPickerModal, { AVAILABLE_SKILLS } from './SkillPickerModal';
 import { getBackendUrl } from '../config/apiConfig';
+import { useResponsive } from '../hooks/useResponsive';
+import { civic, civicRadius, civicShadow } from '../theme/civic';
+import { PrimaryButton } from './ui/Civic';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: any, token: string) => void;
 }
 
+function normalizeUser(user: any) {
+  if (!user) return user;
+  return { ...user, _id: user._id || user.id };
+}
+
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const { t, textAlign, flexDirection, locale } = useTranslation();
+  const { pad, contentMaxWidth, logoHeight, width } = useResponsive();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const backendUrl = getBackendUrl();
 
-  // Form Fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,8 +64,16 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     );
   };
 
+  const persistSession = async (user: any, token: string) => {
+    const normalized = normalizeUser(user);
+    await AsyncStorage.setItem('volunova_auth_token', token);
+    await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(normalized));
+    onAuthSuccess(normalized, token);
+  };
+
   const handleFastDemoLogin = async () => {
     setLoading(true);
+    setError(null);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -55,27 +88,21 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-
       const json = await res.json();
       if (json.ok && json.data) {
-        await AsyncStorage.setItem('volunova_auth_token', json.data.token);
-        await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(json.data.user));
-        onAuthSuccess(json.data.user, json.data.token);
+        await persistSession(json.data.user, json.data.token);
       } else {
-        Alert.alert('Erreur', json.error?.message || 'Impossible de se connecter avec ce compte.');
+        setError(json.error?.message || 'Impossible de se connecter avec ce compte.');
       }
     } catch (e: any) {
       clearTimeout(timeoutId);
       if (e?.name === 'AbortError') {
         Alert.alert(
-          'Délai d\'attente dépassé (Timeout)',
-          `Le serveur (${backendUrl}) met trop de temps à répondre.\n\nVérifiez que votre PC autorise Node.js dans le pare-feu Windows ou utilisez le mode Web.`
+          "Délai d'attente dépassé (Timeout)",
+          `Le serveur (${backendUrl}) met trop de temps à répondre.`
         );
       } else {
-        Alert.alert(
-          'Erreur de connexion',
-          `Impossible de joindre le serveur API (${backendUrl}). Vérifiez que votre téléphone et votre ordinateur sont sur le même réseau Wi-Fi.`
-        );
+        setError(`Impossible de joindre le serveur API (${backendUrl}).`);
       }
     } finally {
       setLoading(false);
@@ -84,26 +111,24 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      Alert.alert('Champs requis', 'Veuillez renseigner votre email et mot de passe.');
+      setError('Veuillez renseigner votre email et mot de passe.');
       return;
     }
 
     if (tab === 'signup') {
       if (!name.trim()) {
-        Alert.alert(t('auth.nameLabel'), 'Veuillez saisir votre nom complet.');
+        setError(t('auth.nameLabel'));
         return;
       }
       if (!skills || skills.length === 0) {
-        Alert.alert(
-          t('auth.skillsRequiredTitle'),
-          t('auth.skillsRequiredMessage')
-        );
+        Alert.alert(t('auth.skillsRequiredTitle'), t('auth.skillsRequiredMessage'));
         setShowSkillPicker(true);
         return;
       }
     }
 
     setLoading(true);
+    setError(null);
     const endpoint = tab === 'signup' ? `${backendUrl}/auth/signup` : `${backendUrl}/auth/login`;
     const payload =
       tab === 'signup'
@@ -121,27 +146,18 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-
       const json = await res.json();
       if (json.ok && json.data) {
-        await AsyncStorage.setItem('volunova_auth_token', json.data.token);
-        await AsyncStorage.setItem('volunova_auth_user', JSON.stringify(json.data.user));
-        onAuthSuccess(json.data.user, json.data.token);
+        await persistSession(json.data.user, json.data.token);
       } else {
-        Alert.alert('Erreur', json.error?.message || 'Identifiants invalides.');
+        setError(json.error?.message || 'Identifiants invalides.');
       }
     } catch (err: any) {
       clearTimeout(timeoutId);
       if (err?.name === 'AbortError') {
-        Alert.alert(
-          'Délai d\'attente dépassé (Timeout)',
-          `Le serveur (${backendUrl}) met trop de temps à répondre (8s).\n\nVérifiez que le pare-feu Windows sur votre PC autorise Node.js sur le réseau privé.`
-        );
+        setError(`Le serveur (${backendUrl}) met trop de temps à répondre.`);
       } else {
-        Alert.alert(
-          'Erreur de connexion',
-          `Impossible de contacter le serveur (${backendUrl}). Vérifiez que votre appareil est connecté au même réseau Wi-Fi que le serveur.`
-        );
+        setError(`Impossible de contacter le serveur (${backendUrl}).`);
       }
     } finally {
       setLoading(false);
@@ -149,195 +165,251 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      {/* Header Language Picker */}
-      <View style={[styles.topBar, { flexDirection }]}>
-        <View style={styles.brandBadge}>
-          <Text style={styles.brandBadgeText}>VOLUNOVA</Text>
-        </View>
-        <MobileLanguagePicker />
-      </View>
-
-      {/* Main Card */}
-      <View style={styles.card}>
-        <Text style={[styles.title, { textAlign }]}>{t('auth.welcomeTitle')}</Text>
-        <Text style={[styles.subtitle, { textAlign }]}>{t('auth.welcomeSub')}</Text>
-
-        {/* Fast Demo Access Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleFastDemoLogin}
-          style={styles.fastDemoBtn}
-          disabled={loading}
-        >
-          <Text style={styles.fastDemoBtnText}>{t('auth.demoFastLogin')}</Text>
-        </TouchableOpacity>
-
-        {/* Tabs */}
-        <View style={[styles.tabsWrapper, { flexDirection }]}>
-          <TouchableOpacity
-            onPress={() => setTab('login')}
-            style={[styles.tabBtn, tab === 'login' && styles.tabBtnActive]}
-          >
-            <Text style={[styles.tabBtnText, tab === 'login' && styles.tabBtnTextActive]}>
-              {t('auth.tabLogin')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setTab('signup')}
-            style={[styles.tabBtn, tab === 'signup' && styles.tabBtnActive]}
-          >
-            <Text style={[styles.tabBtnText, tab === 'signup' && styles.tabBtnTextActive]}>
-              {t('auth.tabSignup')}
-            </Text>
-          </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingHorizontal: pad, maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.topBar, { flexDirection }]}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={{ height: Math.max(logoHeight, 56), width: Math.min(168, width * 0.42) }}
+            resizeMode="contain"
+          />
+          <MobileLanguagePicker />
         </View>
 
-        {/* Inputs */}
-        <View style={styles.form}>
-          {tab === 'signup' && (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { textAlign }]}>{t('auth.nameLabel')}</Text>
-              <TextInput
-                style={[styles.input, { textAlign }]}
+        <View style={styles.heading}>
+          <Text style={[styles.title, { textAlign }]}>
+            {tab === 'login' ? t('auth.welcomeTitle') : t('auth.signupTitle')}
+          </Text>
+          <Text style={[styles.subtitle, { textAlign }]}>{t('auth.welcomeSub')}</Text>
+        </View>
+
+        <View style={styles.card}>
+          {error ? (
+            <View style={[styles.alert, { flexDirection }]}>
+              <AlertCircle size={16} color={civic.danger} />
+              <Text style={styles.alertText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <View style={[styles.tabs, { flexDirection }]}>
+            <TouchableOpacity
+              onPress={() => setTab('login')}
+              style={[styles.tabBtn, tab === 'login' && styles.tabBtnActive]}
+            >
+              <User size={14} color={tab === 'login' ? civic.teal : civic.muted} />
+              <Text style={[styles.tabText, tab === 'login' && styles.tabTextActive]}>
+                {t('auth.tabLogin')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setTab('signup')}
+              style={[styles.tabBtn, tab === 'signup' && styles.tabBtnActive]}
+            >
+              <HeartHandshake size={14} color={tab === 'signup' ? civic.teal : civic.muted} />
+              <Text style={[styles.tabText, tab === 'signup' && styles.tabTextActive]}>
+                {t('auth.tabSignup')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.form}>
+            {tab === 'signup' && (
+              <Field
+                label={t('auth.nameLabel')}
+                icon={<User size={16} color={civic.muted} />}
                 placeholder={t('auth.namePlaceholder')}
-                placeholderTextColor="#64748B"
                 value={name}
                 onChangeText={setName}
+                textAlign={textAlign}
                 autoCapitalize="words"
               />
-            </View>
-          )}
+            )}
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { textAlign }]}>{t('auth.emailLabel')}</Text>
-            <TextInput
-              style={[styles.input, { textAlign }]}
+            <Field
+              label={t('auth.emailLabel')}
+              icon={<Mail size={16} color={civic.muted} />}
               placeholder={t('auth.emailPlaceholder')}
-              placeholderTextColor="#64748B"
               value={email}
               onChangeText={setEmail}
+              textAlign={textAlign}
               keyboardType="email-address"
               autoCapitalize="none"
             />
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { textAlign }]}>{t('auth.passwordLabel')}</Text>
-            <TextInput
-              style={[styles.input, { textAlign }]}
+            <Field
+              label={t('auth.passwordLabel')}
+              icon={<Lock size={16} color={civic.muted} />}
               placeholder={t('auth.passwordPlaceholder')}
-              placeholderTextColor="#64748B"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              textAlign={textAlign}
+              secureTextEntry={!showPassword}
+              trailing={
+                <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={10}>
+                  {showPassword ? (
+                    <EyeOff size={16} color={civic.muted} />
+                  ) : (
+                    <Eye size={16} color={civic.muted} />
+                  )}
+                </TouchableOpacity>
+              }
+            />
+
+            {tab === 'signup' && (
+              <>
+                <Field
+                  label={t('auth.cityLabel')}
+                  icon={<MapPin size={16} color={civic.muted} />}
+                  placeholder={t('auth.cityPlaceholder')}
+                  value={city}
+                  onChangeText={setCity}
+                  textAlign={textAlign}
+                />
+
+                <View style={styles.inputGroup}>
+                  <View style={[styles.labelRow, { flexDirection }]}>
+                    <Text style={styles.label}>{t('auth.skillsLabel')}</Text>
+                    <Text style={[styles.skillCount, skills.length > 0 ? styles.ok : styles.req]}>
+                      {skills.length > 0
+                        ? `✓ ${skills.length} ${t('auth.selectedCount')}`
+                        : `* ${t('auth.skillsRequiredBadge')}`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setShowSkillPicker(true)}
+                    style={[
+                      styles.skillTrigger,
+                      skills.length > 0 ? styles.skillFilled : styles.skillEmpty,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.skillTriggerText,
+                        { color: skills.length > 0 ? civic.teal : civic.danger },
+                      ]}
+                    >
+                      {skills.length > 0
+                        ? `✓ ${skills.length} ${t('auth.selectedCount')}`
+                        : t('auth.selectSkillsBtn')}
+                    </Text>
+                    <UserPlus size={16} color={skills.length > 0 ? civic.teal : civic.danger} />
+                  </TouchableOpacity>
+                  {skills.length > 0 && (
+                    <View style={styles.chips}>
+                      {skills.map((s) => {
+                        const found = AVAILABLE_SKILLS.find((o) => o.id === s);
+                        const label = found
+                          ? locale === 'ar'
+                            ? found.nameAr
+                            : locale === 'fr'
+                            ? found.nameFr
+                            : found.nameEn
+                          : s;
+                        return (
+                          <View key={s} style={styles.chip}>
+                            <Text style={styles.chipText}>
+                              {found ? `${found.icon} ${label}` : s}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+
+            <PrimaryButton
+              label={tab === 'signup' ? t('auth.signupBtn') : t('auth.loginBtn')}
+              onPress={handleSubmit}
+              loading={loading}
+              icon={
+                tab === 'signup' ? (
+                  <UserPlus size={16} color="#fff" />
+                ) : (
+                  <User size={16} color="#fff" />
+                )
+              }
             />
           </View>
 
-          {tab === 'signup' && (
-            <>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { textAlign }]}>{t('auth.cityLabel')}</Text>
-                <TextInput
-                  style={[styles.input, { textAlign }]}
-                  placeholder={t('auth.cityPlaceholder')}
-                  placeholderTextColor="#64748B"
-                  value={city}
-                  onChangeText={setCity}
-                />
-              </View>
-
-              {/* Skills Selector Button (Mandatory for Volunteers) */}
-              <View style={styles.inputGroup}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[styles.label, { textAlign }]}>{t('auth.skillsLabel')}</Text>
-                  <Text style={[styles.requiredBadge, skills.length > 0 ? styles.badgeDone : styles.badgeReq]}>
-                    {skills.length > 0 ? `✓ ${skills.length} ${t('auth.selectedCount')}` : `* ${t('auth.skillsRequiredBadge')}`}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setShowSkillPicker(true)}
-                  style={[
-                    styles.skillSelectorTrigger,
-                    skills.length > 0 ? styles.skillSelectorTriggerFilled : styles.skillSelectorTriggerEmpty,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.skillSelectorText,
-                      skills.length > 0 ? styles.skillSelectorTextFilled : styles.skillSelectorTextEmpty,
-                    ]}
-                  >
-                    {skills.length > 0
-                      ? `✓ ${skills.length} ${t('auth.selectedCount')}`
-                      : `⚠️ ${t('auth.selectSkillsBtn')}`}
-                  </Text>
-                  <Text style={styles.editIcon}>{skills.length > 0 ? '✏️' : '👉'}</Text>
-                </TouchableOpacity>
-
-                {skills.length > 0 && (
-                  <View style={styles.skillPreviewChips}>
-                    {skills.map((s) => {
-                      const found = AVAILABLE_SKILLS.find((o) => o.id === s || o.nameFr === s || o.nameEn === s);
-                      const label = found
-                        ? locale === 'ar'
-                          ? found.nameAr
-                          : locale === 'fr'
-                          ? found.nameFr
-                          : found.nameEn
-                        : s;
-                      return (
-                        <View key={s} style={styles.miniChip}>
-                          <Text style={styles.miniChipText}>
-                            {found ? `${found.icon} ${label}` : s}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            </>
-          )}
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleSubmit}
-            style={styles.submitBtn}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitBtnText}>
-                {tab === 'signup' ? t('auth.signupBtn') : t('auth.loginBtn')}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.adminBox}>
+            <Text style={styles.adminLabel}>{t('auth.adminAccess')}</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleFastDemoLogin}
+              disabled={loading}
+              style={styles.adminBtn}
+            >
+              {loading ? (
+                <ActivityIndicator color={civic.purple} />
+              ) : (
+                <>
+                  <ShieldCheck size={16} color={civic.purple} />
+                  <Text style={styles.adminBtnText}>{t('auth.demoFastLogin')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Skill Picker Modal */}
       <SkillPickerModal
         visible={showSkillPicker}
         selectedSkills={skills}
         onToggleSkill={toggleSkill}
         onClose={() => setShowSkillPicker(false)}
       />
-    </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+function Field({
+  label,
+  icon,
+  trailing,
+  textAlign,
+  ...inputProps
+}: {
+  label: string;
+  icon: React.ReactNode;
+  trailing?: React.ReactNode;
+  textAlign: 'left' | 'right';
+} & React.ComponentProps<typeof TextInput>) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={[styles.label, { textAlign }]}>{label}</Text>
+      <View style={styles.inputWrap}>
+        <View style={styles.inputIcon}>{icon}</View>
+        <TextInput
+          {...inputProps}
+          placeholderTextColor={civic.mutedSoft}
+          style={[styles.input, { textAlign }]}
+        />
+        {trailing ? <View style={styles.inputIcon}>{trailing}</View> : null}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: civic.backgroundAlt,
+  },
   container: {
     flexGrow: 1,
-    backgroundColor: '#060A12',
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   topBar: {
@@ -345,178 +417,190 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  brandBadge: {
-    backgroundColor: '#0E1D45',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2563EB',
-  },
-  brandBadgeText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  card: {
-    backgroundColor: '#0A1224',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#1E2B4D',
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 8,
+  heading: {
+    marginBottom: 18,
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
+    color: civic.navy,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
     marginBottom: 6,
   },
   subtitle: {
-    color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 18,
+    color: civic.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  fastDemoBtn: {
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+  card: {
+    backgroundColor: civic.surface,
+    borderRadius: civicRadius.xl,
     borderWidth: 1,
-    borderColor: '#38BDF8',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderColor: civic.border,
+    padding: 20,
+    ...civicShadow.raised,
+  },
+  alert: {
     alignItems: 'center',
-    marginBottom: 20,
+    gap: 8,
+    backgroundColor: civic.dangerBg,
+    borderWidth: 1,
+    borderColor: civic.dangerBorder,
+    borderRadius: civicRadius.md,
+    padding: 12,
+    marginBottom: 14,
   },
-  fastDemoBtnText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: 'bold',
+  alertText: {
+    color: civic.danger,
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
-  tabsWrapper: {
-    backgroundColor: '#111A30',
-    borderRadius: 12,
+  tabs: {
+    backgroundColor: civic.background,
+    borderRadius: civicRadius.md,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: civic.border,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   tabBtnActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: civic.white,
+    borderWidth: 1,
+    borderColor: civic.border,
   },
-  tabBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
+  tabText: {
+    color: civic.muted,
+    fontSize: 12,
     fontWeight: '700',
   },
+  tabTextActive: {
+    color: civic.teal,
+  },
   form: {
-    gap: 16,
+    gap: 14,
   },
   inputGroup: {
     gap: 6,
   },
   label: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '700',
+    color: civic.navy,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  labelRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: civic.backgroundAlt,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: civicRadius.md,
+    paddingHorizontal: 4,
+  },
+  inputIcon: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
-    backgroundColor: '#060B18',
-    borderWidth: 1,
-    borderColor: '#1E2B4D',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    flex: 1,
     paddingVertical: 12,
-    color: '#FFFFFF',
+    color: civic.navy,
     fontSize: 14,
   },
-  skillSelectorTrigger: {
+  skillTrigger: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: civicRadius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1.5,
   },
-  skillSelectorTriggerEmpty: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: '#EF4444',
+  skillEmpty: {
+    backgroundColor: civic.dangerBg,
+    borderColor: civic.danger,
   },
-  skillSelectorTriggerFilled: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: '#10B981',
+  skillFilled: {
+    backgroundColor: civic.tealSoft,
+    borderColor: civic.teal,
   },
-  skillSelectorText: {
+  skillTriggerText: {
     fontSize: 13,
     fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
   },
-  skillSelectorTextEmpty: {
-    color: '#F87171',
-  },
-  skillSelectorTextFilled: {
-    color: '#34D399',
-  },
-  requiredBadge: {
+  skillCount: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  badgeReq: {
-    color: '#F87171',
-  },
-  badgeDone: {
-    color: '#34D399',
-  },
-  editIcon: {
-    fontSize: 14,
-  },
-  skillPreviewChips: {
+  req: { color: civic.danger },
+  ok: { color: civic.teal },
+  chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 6,
   },
-  miniChip: {
-    backgroundColor: '#15213D',
+  chip: {
+    backgroundColor: civic.tealSoft,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#1E2B4D',
+    borderColor: 'rgba(13,122,111,0.2)',
   },
-  miniChipText: {
-    color: '#93C5FD',
+  chipText: {
+    color: civic.teal,
     fontSize: 11,
     fontWeight: '600',
   },
-  submitBtn: {
-    backgroundColor: '#2563EB',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+  adminBox: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: civic.border,
   },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+  adminLabel: {
+    textAlign: 'center',
+    color: civic.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  adminBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: civic.purpleBg,
+    borderWidth: 1,
+    borderColor: civic.purpleBorder,
+    borderRadius: civicRadius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  adminBtnText: {
+    color: civic.purple,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

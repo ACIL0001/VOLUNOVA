@@ -9,8 +9,9 @@ import FloatingLanguageButton from '@/components/ui/FloatingLanguageButton';
 export default function ConditionalChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
+  const isOrgDashboard = pathname?.startsWith('/dashboard');
 
-  if (isAdmin) {
+  if (isAdmin || isOrgDashboard) {
     return <>{children}</>;
   }
 

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   MobileLocale,
   dictionaries,
@@ -20,7 +21,20 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocale] = useState<MobileLocale>(DEFAULT_LOCALE);
+  const [locale, setLocaleState] = useState<MobileLocale>(DEFAULT_LOCALE);
+
+  useEffect(() => {
+    AsyncStorage.getItem('volunova_locale').then((saved) => {
+      if (saved === 'ar' || saved === 'fr' || saved === 'en') {
+        setLocaleState(saved);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const setLocale = (next: MobileLocale) => {
+    setLocaleState(next);
+    AsyncStorage.setItem('volunova_locale', next).catch(() => {});
+  };
 
   const t = (path: string, vars?: Record<string, string | number>): string => {
     const currentDict = dictionaries[locale] || dictionaries[DEFAULT_LOCALE];

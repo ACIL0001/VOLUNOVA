@@ -1,49 +1,86 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  View,
-  ScrollView,
+  TextInput,
   TouchableOpacity,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  Award,
+  Bell,
+  CheckCircle2,
+  Clock,
+  Compass,
+  LogOut,
+  MapPin,
+  Palette,
+  QrCode,
+  RefreshCw,
+  Search,
+  Sparkles,
+  TreePine,
+  Users,
+  Zap,
+} from 'lucide-react-native';
 import { LanguageProvider, useTranslation } from './src/context/LanguageContext';
 import MobileLanguagePicker from './src/components/MobileLanguagePicker';
 import AuthScreen from './src/components/AuthScreen';
 import { AVAILABLE_SKILLS } from './src/components/SkillPickerModal';
 import NotificationsModal, { MobileNotification } from './src/components/NotificationsModal';
+import MissionCard, { fillPercent, localizeCategory } from './src/components/MissionCard';
+import MissionOpsSheet from './src/components/MissionOpsSheet';
+import { CivicBadge, CivicCard, CivicProgress, PrimaryButton } from './src/components/ui/Civic';
 import { subscribeVolunteerNotifications } from './src/services/mobileSocket';
-import { registerPushNotifications, setupPushNotificationTapListener, displayLocalNotification } from './src/services/pushService';
+import {
+  registerPushNotifications,
+  setupPushNotificationTapListener,
+  displayLocalNotification,
+} from './src/services/pushService';
 import { getBackendUrl } from './src/config/apiConfig';
+import { useResponsive } from './src/hooks/useResponsive';
+import { civic, civicRadius, civicShadow } from './src/theme/civic';
 
 const BACKEND_URL = getBackendUrl();
+const CATEGORIES = ['All', 'Environmental', 'Humanitarian', 'Health', 'Education', 'Technology'];
 
 function VolunovaMobileApp() {
   const { t, isRTL, textAlign, flexDirection, locale } = useTranslation();
+  const { pad, contentMaxWidth, logoHeight, tabBarHeight, columns, compact, isPhone } =
+    useResponsive();
+
   const [activeTab, setActiveTab] = useState<'matched' | 'browse' | 'passport'>('matched');
-  const [hasJoined, setHasJoined] = useState(false);
-  const [joining, setJoining] = useState(false);
+  const [joiningNeedId, setJoiningNeedId] = useState<string | null>(null);
+  const [joinedNeedIds, setJoinedNeedIds] = useState<string[]>([]);
   const [impactHours, setImpactHours] = useState(0);
   const [serverOnline, setServerOnline] = useState(false);
 
-  // Authentication State
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [missions, setMissions] = useState<any[]>([]);
   const [loadingMissions, setLoadingMissions] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedCat, setSelectedCat] = useState('All');
+  const [opsMission, setOpsMission] = useState<any | null>(null);
+  const [stats, setStats] = useState({
+    treesPlanted: 0,
+    totalImpactHours: 0,
+    volunteersMobilized: 0,
+    fillRatePercentage: 0,
+  });
 
-  // Notifications State
   const [notifications, setNotifications] = useState<MobileNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-
-  // In-App Toast Alert State
   const [toastNotif, setToastNotif] = useState<{
     title: string;
     body: string;
@@ -53,13 +90,10 @@ function VolunovaMobileApp() {
 
   useEffect(() => {
     if (!toastNotif) return;
-    const timer = setTimeout(() => {
-      setToastNotif(null);
-    }, 7000);
+    const timer = setTimeout(() => setToastNotif(null), 7000);
     return () => clearTimeout(timer);
   }, [toastNotif]);
 
-  // Load Persisted Session from AsyncStorage on Startup
   useEffect(() => {
     async function loadSession() {
       try {
@@ -68,7 +102,7 @@ function VolunovaMobileApp() {
         if (token && userJson) {
           const u = JSON.parse(userJson);
           setAuthToken(token);
-          setCurrentUser(u);
+          setCurrentUser({ ...u, _id: u._id || u.id });
           if (u.impactHours !== undefined) setImpactHours(u.impactHours);
         }
       } catch (e) {
@@ -85,13 +119,21 @@ function VolunovaMobileApp() {
     try {
       const res = await fetch(`${BACKEND_URL}/missions`);
       const data = await res.json();
-      if (data.ok && Array.isArray(data.data)) {
-        setMissions(data.data);
-      }
+      if (data.ok && Array.isArray(data.data)) setMissions(data.data);
     } catch (e) {
       console.warn('Could not fetch missions from backend:', e);
     } finally {
       setLoadingMissions(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/stats/impact-wall`);
+      const data = await res.json();
+      if (data.ok && data.data) setStats(data.data);
+    } catch {
+      // keep zeros
     }
   };
 
@@ -102,8 +144,8 @@ function VolunovaMobileApp() {
         if (data.status === 'online') setServerOnline(true);
       })
       .catch(() => setServerOnline(false));
-
     fetchMissions();
+    fetchStats();
   }, []);
 
   const handleLogout = async () => {
@@ -111,48 +153,46 @@ function VolunovaMobileApp() {
     await AsyncStorage.removeItem('volunova_auth_user');
     setAuthToken(null);
     setCurrentUser(null);
-    setHasJoined(false);
+    setJoinedNeedIds([]);
   };
 
   const handleJoinMission = async (missionId?: string, needId?: string, hours: number = 4) => {
-    if (hasJoined) return;
     if (!authToken) {
       Alert.alert('Non connecté', 'Veuillez vous connecter pour postuler.');
       return;
     }
-    setJoining(true);
+    const targetMissionId = missionId || missions[0]?._id;
+    const targetNeedId = needId || missions[0]?.needs?.[0]?._id;
+    if (!targetMissionId || !targetNeedId) {
+      Alert.alert('Information', 'Aucune mission disponible à rejoindre pour le moment.');
+      return;
+    }
+    if (joinedNeedIds.includes(targetNeedId)) return;
 
+    setJoiningNeedId(targetNeedId);
     try {
-      const targetMissionId = missionId || missions[0]?._id;
-      const targetNeedId = needId || missions[0]?.needs?.[0]?._id;
-
-      if (!targetMissionId || !targetNeedId) {
-        Alert.alert('Information', 'Aucune mission disponible à rejoindre pour le moment.');
-        setJoining(false);
-        return;
-      }
-
       const res = await fetch(`${BACKEND_URL}/missions/${targetMissionId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ needId: targetNeedId }),
       });
       const data = await res.json();
       if (data.ok) {
-        setHasJoined(true);
+        setJoinedNeedIds((prev) => [...prev, targetNeedId]);
         setImpactHours((prev) => prev + hours);
         fetchMissions();
+        fetchStats();
         Alert.alert(t('alerts.congrats'), t('alerts.joinedMessage'));
       } else {
         Alert.alert('Information', data.error?.message || 'Ce créneau est déjà pourvu.');
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Erreur', 'Impossible de contacter le serveur backend.');
     } finally {
-      setJoining(false);
+      setJoiningNeedId(null);
     }
   };
 
@@ -171,9 +211,10 @@ function VolunovaMobileApp() {
           ? data.data
           : [];
         setNotifications(list);
-        const unread = typeof data.data.unreadCount === 'number'
-          ? data.data.unreadCount
-          : list.filter((n: any) => !n.readAt).length;
+        const unread =
+          typeof data.data.unreadCount === 'number'
+            ? data.data.unreadCount
+            : list.filter((n: any) => !n.readAt).length;
         setUnreadCount(unread);
       }
     } catch (e) {
@@ -204,15 +245,18 @@ function VolunovaMobileApp() {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${authToken}` },
       }).catch(() => {});
-      setNotifications((prev) => prev.map((n) => (n._id === notifId ? { ...n, readAt: new Date().toISOString() } : n)));
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === notifId ? { ...n, readAt: new Date().toISOString() } : n))
+      );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
+    const found = missions.find((m) => m._id === missionId);
+    if (found) setOpsMission(found);
     setActiveTab('matched');
   };
 
   useEffect(() => {
     if (!authToken || !currentUser?._id) return;
-
     fetchNotifications();
     registerPushNotifications(authToken);
 
@@ -223,24 +267,19 @@ function VolunovaMobileApp() {
     const cleanupSocket = subscribeVolunteerNotifications(currentUser._id, (newNotif) => {
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((prev) => prev + 1);
-
       const roleName = newNotif?.payload?.roleName || 'Bénévole';
       const missionTitle = newNotif?.payload?.missionTitle || 'Mission';
-      const notifTitle = '🎉 Sélectionné(e) pour une mission !';
-      const notifBody = `Vous avez été sélectionné(e) pour "${roleName}" sur "${missionTitle}".`;
-
-      // Display floating top Toast Banner
+      const notifTitle = t('notifications.selectedTitle');
+      const notifBody = `${t('notifications.selectedBodyPrefix')} "${roleName}" — "${missionTitle}".`;
       setToastNotif({
         title: notifTitle,
         body: notifBody,
         missionId: newNotif?.payload?.missionId,
         notifId: newNotif?._id,
       });
-
-      // Trigger native phone notification banner with sound and vibration
       displayLocalNotification({
         title: notifTitle,
-        body: `${notifBody} Touchez pour voir la mission.`,
+        body: `${notifBody} ${t('notifications.viewMission')}`,
         data: {
           missionId: newNotif?.payload?.missionId,
           needId: newNotif?.payload?.needId,
@@ -256,19 +295,19 @@ function VolunovaMobileApp() {
 
   if (authLoading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#38BDF8" />
+      <SafeAreaView style={[styles.boot, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={civic.teal} />
       </SafeAreaView>
     );
   }
 
   if (!authToken || !currentUser) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#060A12" />
+      <SafeAreaView style={styles.boot}>
+        <StatusBar barStyle="dark-content" backgroundColor={civic.backgroundAlt} />
         <AuthScreen
           onAuthSuccess={(user, token) => {
-            setCurrentUser(user);
+            setCurrentUser({ ...user, _id: user._id || user.id });
             setAuthToken(token);
             if (user.impactHours !== undefined) setImpactHours(user.impactHours);
           }}
@@ -277,15 +316,45 @@ function VolunovaMobileApp() {
     );
   }
 
-  const initialLetter = currentUser?.name ? currentUser.name.trim().charAt(0) : 'أ';
+  const initials = currentUser?.name
+    ? currentUser.name
+        .trim()
+        .split(' ')
+        .slice(0, 2)
+        .map((p: string) => p[0])
+        .join('')
+        .toUpperCase()
+    : 'V';
+
+  const filteredMissions = missions.filter((m) => {
+    const matchesCat = selectedCat === 'All' || m.category === selectedCat;
+    const q = search.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      m.title?.toLowerCase().includes(q) ||
+      m.venueName?.toLowerCase().includes(q) ||
+      m.description?.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
+  const matchedMission = missions[0];
+  const primaryNeed = matchedMission?.needs?.[0];
+  const matchedPct = matchedMission ? fillPercent(matchedMission) : 0;
+  const matchedJoined = primaryNeed ? joinedNeedIds.includes(primaryNeed._id) : false;
+
+  const impactItems = [
+    { icon: TreePine, value: `${stats.treesPlanted.toLocaleString()}+`, label: t('impact.trees') },
+    { icon: Clock, value: stats.totalImpactHours.toLocaleString(), label: t('impact.hours') },
+    { icon: Users, value: `${stats.volunteersMobilized.toLocaleString()}+`, label: t('impact.volunteers') },
+    { icon: Zap, value: `${stats.fillRatePercentage}%`, label: t('impact.fill_rate') },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060A12" />
+    <SafeAreaView style={styles.boot} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={civic.white} />
 
-      {/* Real-time In-App Floating Toast Banner */}
       {toastNotif && (
-        <View style={styles.toastContainer}>
+        <View style={styles.toastWrap}>
           <TouchableOpacity
             style={styles.toastCard}
             activeOpacity={0.9}
@@ -296,206 +365,185 @@ function VolunovaMobileApp() {
               setToastNotif(null);
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Text style={{ fontSize: 24 }}>🎉</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toastTitle}>{toastNotif.title}</Text>
-                <Text style={styles.toastBody} numberOfLines={2}>
-                  {toastNotif.body}
-                </Text>
-                <Text style={styles.toastActionText}>
-                  {t('notifications.viewMission')} →
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setToastNotif(null)}
-                style={styles.toastCloseBtn}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Text style={styles.toastCloseText}>✕</Text>
-              </TouchableOpacity>
+            <Sparkles size={20} color={civic.teal} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toastTitle}>{toastNotif.title}</Text>
+              <Text style={styles.toastBody} numberOfLines={2}>
+                {toastNotif.body}
+              </Text>
+              <Text style={styles.toastAction}>{t('notifications.viewMission')} →</Text>
             </View>
+            <TouchableOpacity onPress={() => setToastNotif(null)} hitSlop={12}>
+              <Text style={styles.toastClose}>✕</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Header with Language Picker & Logout */}
-      <View style={[styles.header, { flexDirection }]}>
-        <View style={[styles.headerProfile, { flexDirection }]}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initialLetter}</Text>
-          </View>
-          <View>
-            <Text style={[styles.greeting, { textAlign }]}>{t('header.greeting')}</Text>
-            <Text style={[styles.userName, { textAlign }]}>{currentUser?.name || t('header.userName')}</Text>
+      <View style={styles.header}>
+        <View style={[styles.headerTop, { flexDirection, paddingHorizontal: pad }]}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={{ height: Math.max(logoHeight, 48), width: compact ? 132 : 168 }}
+            resizeMode="contain"
+          />
+          <View style={styles.headerActions}>
+            <MobileLanguagePicker />
+            <TouchableOpacity onPress={() => setNotifModalVisible(true)} style={styles.iconBtn}>
+              <Bell size={16} color={civic.muted} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.iconBtn}>
+              <LogOut size={16} color={civic.danger} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Header Actions: Language, Notifications & Logout */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <MobileLanguagePicker />
-
-          {/* Real-time Notification Bell */}
-          <TouchableOpacity
-            onPress={() => setNotifModalVisible(true)}
-            accessibilityLabel={t('notifications.title')}
-            style={styles.notifBtn}
-          >
-            <Text style={styles.notifBtnIcon}>🔔</Text>
-            {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>🏅 {impactHours} {t('header.hoursSuffix')}</Text>
+        <View style={[styles.profileRow, { flexDirection, paddingHorizontal: pad }]}>
+          <View style={[styles.profileLeft, { flexDirection }]}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+            <View>
+              <Text style={[styles.greeting, { textAlign }]}>{t('header.greeting')}</Text>
+              <Text style={[styles.userName, { textAlign }]} numberOfLines={1}>
+                {currentUser?.name || t('header.userName')}
+              </Text>
+            </View>
           </View>
+          <View style={[styles.hoursPill, { flexDirection }]}>
+            <Clock size={12} color={civic.teal} />
+            <Text style={styles.hoursText}>
+              {impactHours} {t('header.hoursSuffix')}
+            </Text>
+          </View>
+        </View>
 
-          <TouchableOpacity
-            onPress={handleLogout}
-            accessibilityLabel={t('auth.logout')}
-            style={styles.logoutBtn}
-          >
-            <Text style={styles.logoutBtnText}>🚪</Text>
-          </TouchableOpacity>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, { backgroundColor: serverOnline ? civic.teal : '#d97706' }]} />
+          <Text style={styles.statusText}>
+            {serverOnline ? t('telemetry.online') : t('telemetry.offline')}
+          </Text>
         </View>
       </View>
 
-      {/* Connectivity Status */}
-      <View style={styles.statusPillContainer}>
-        <View style={[styles.statusDot, { backgroundColor: serverOnline ? '#38BDF8' : '#F59E0B' }]} />
-        <Text style={styles.statusPillText}>
-          {serverOnline ? t('telemetry.online') : t('telemetry.offline')}
-        </Text>
-      </View>
-
-      {/* Navigation Tabs */}
-      <View style={[styles.tabsContainer, { flexDirection }]}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'matched' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('matched')}
-        >
-          <Text style={[styles.tabText, activeTab === 'matched' && styles.tabTextActive]}>
-            {t('tabs.matched')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'browse' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('browse')}
-        >
-          <Text style={[styles.tabText, activeTab === 'browse' && styles.tabTextActive]}>
-            {t('tabs.browse')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'passport' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('passport')}
-        >
-          <Text style={[styles.tabText, activeTab === 'passport' && styles.tabTextActive]}>
-            {t('tabs.passport')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: pad,
+          paddingBottom: tabBarHeight + 16,
+          maxWidth: contentMaxWidth,
+          width: '100%',
+          alignSelf: 'center',
+          gap: 14,
+        }}
+      >
         {activeTab === 'matched' && (
           <View>
-            {/* Match Notification Banner */}
-            <View style={styles.matchBanner}>
-              <Text style={[styles.matchBannerTitle, { textAlign }]}>{t('match.bannerTitle')}</Text>
-              <Text style={[styles.matchBannerDesc, { textAlign }]}>{t('match.bannerDesc')}</Text>
-            </View>
-
-            {/* Matched Mission Card */}
-            {missions.length > 0 ? (
-              missions.slice(0, 1).map((mission) => {
-                const primaryNeed = mission.needs?.[0];
-                const pct = mission.totalSlotsNeeded > 0
-                  ? Math.round((mission.totalSlotsFilled / mission.totalSlotsNeeded) * 100)
-                  : 0;
-
+            <View style={styles.impactGrid}>
+              {impactItems.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <View key={mission._id} style={styles.card}>
-                    <View style={[styles.cardTopRow, { flexDirection }]}>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>{mission.category}</Text>
-                      </View>
-                      <View style={styles.matchScoreBadge}>
-                        <Text style={styles.matchScoreText}>🌟 98% Match</Text>
-                      </View>
-                    </View>
-
-                    <Text style={[styles.cardTitle, { textAlign }]}>{mission.title}</Text>
-                    <Text style={[styles.cardOrg, { textAlign }]}>{mission.orgId?.name || 'Association Citoyenne'}</Text>
-
-                    <View style={styles.detailBox}>
-                      {primaryNeed && (
-                        <Text style={[styles.detailItem, { textAlign }]}>
-                          {t('match.roleLabel')}: <Text style={styles.boldSky}>{primaryNeed.roleName}</Text>
-                        </Text>
-                      )}
-                      <Text style={[styles.detailItem, { textAlign }]}>📍 {mission.venueName}</Text>
-                      <Text style={[styles.detailItem, { textAlign }]}>⏱️ {mission.estimatedHoursPerVolunteer || 4} {t('header.hoursSuffix')}</Text>
-                    </View>
-
-                    {/* Strict Reserved Green Progress Bar */}
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressLabels, { flexDirection }]}>
-                        <Text style={styles.progressLabelText}>
-                          {t('match.progressLabel')}: {mission.totalSlotsFilled}/{mission.totalSlotsNeeded} {t('match.progressStaffed')}
-                        </Text>
-                        <Text style={styles.progressPctText}>
-                          {pct}%
-                        </Text>
-                      </View>
-                      <View style={styles.progressBarTrack}>
-                        <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(5, pct))}%` }]} />
-                      </View>
-                    </View>
-
-                    {/* 1-Tap Join Button / Reserved Green Accept Box */}
-                    {hasJoined ? (
-                      <View style={styles.joinedSuccessBox}>
-                        <Text style={styles.joinedSuccessText}>{t('match.joinedSuccess')}</Text>
-                        <Text style={styles.joinedSubText}>{t('match.joinedSub')}</Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.joinButton}
-                        onPress={() => handleJoinMission(mission._id, primaryNeed?._id, mission.estimatedHoursPerVolunteer || 4)}
-                        disabled={joining}
-                      >
-                        <Text style={styles.joinButtonText}>
-                          {joining ? t('match.joining') : t('match.joinBtn')}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                  <View key={item.label} style={styles.impactCell}>
+                    <Icon size={16} color={civic.teal} />
+                    <Text style={styles.impactValue}>{item.value}</Text>
+                    <Text style={styles.impactLabel}>{item.label}</Text>
                   </View>
                 );
-              })
-            ) : (
-              <View style={[styles.card, { alignItems: 'center', paddingVertical: 28 }]}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>🌱</Text>
-                <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
-                  {locale === 'ar' ? 'لا توجد مبادرات مطابقة حالياً' : locale === 'fr' ? 'Aucune mission pour le moment' : 'No missions available yet'}
-                </Text>
-                <Text style={[styles.cardDesc, { textAlign: 'center', marginTop: 4 }]}>
-                  {locale === 'ar' ? 'قم بنشر مهمة جديدة من المنصة أو انتظر تسجيل مبادرات جديدة.' : locale === 'fr' ? 'Publiez une initiative depuis le portail web pour la voir apparaître ici.' : 'Publish a mission from the web portal to see it appear here live.'}
-                </Text>
+              })}
+            </View>
+
+            <View style={styles.matchBanner}>
+              <View style={[styles.bannerHead, { flexDirection }]}>
+                <Sparkles size={16} color={civic.teal} />
+                <Text style={[styles.bannerTitle, { textAlign }]}>{t('match.bannerTitle')}</Text>
               </View>
+              <Text style={[styles.bannerDesc, { textAlign }]}>{t('match.bannerDesc')}</Text>
+            </View>
+
+            {matchedMission ? (
+              <CivicCard>
+                <View style={[styles.cardTop, { flexDirection }]}>
+                  <CivicBadge label={localizeCategory(matchedMission.category, t)} />
+                  <View style={[styles.matchScore, { flexDirection }]}>
+                    <Sparkles size={12} color={civic.teal} />
+                    <Text style={styles.matchScoreText}>98% {t('ops.match_score')}</Text>
+                  </View>
+                </View>
+                <Text style={[styles.missionTitle, { textAlign }]}>{matchedMission.title}</Text>
+                <Text style={[styles.missionOrg, { textAlign }]}>
+                  {matchedMission.orgId?.name || 'Association Citoyenne'}
+                </Text>
+                <View style={styles.detailBox}>
+                  {primaryNeed && (
+                    <Text style={[styles.detailItem, { textAlign }]}>
+                      {t('match.roleLabel')}: {primaryNeed.roleName}
+                    </Text>
+                  )}
+                  <View style={[styles.metaLine, { flexDirection }]}>
+                    <MapPin size={13} color={civic.teal} />
+                    <Text style={styles.detailItem}>{matchedMission.venueName}</Text>
+                  </View>
+                  <View style={[styles.metaLine, { flexDirection }]}>
+                    <Clock size={13} color={civic.navy} />
+                    <Text style={styles.detailItem}>
+                      {matchedMission.estimatedHoursPerVolunteer || 4} {t('header.hoursSuffix')}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.progressLabels, { flexDirection }]}>
+                  <Text style={styles.progressLabel}>
+                    {t('match.progressLabel')}: {matchedMission.totalSlotsFilled}/
+                    {matchedMission.totalSlotsNeeded}
+                  </Text>
+                  <Text style={styles.progressPct}>{matchedPct}%</Text>
+                </View>
+                <CivicProgress pct={matchedPct} />
+                <View style={{ height: 14 }} />
+                {matchedJoined ? (
+                  <View style={styles.joinedBox}>
+                    <CheckCircle2 size={18} color={civic.teal} />
+                    <Text style={styles.joinedTitle}>{t('match.joinedSuccess')}</Text>
+                    <Text style={styles.joinedSub}>{t('match.joinedSub')}</Text>
+                  </View>
+                ) : (
+                  <PrimaryButton
+                    label={joiningNeedId ? t('match.joining') : t('match.joinBtn')}
+                    onPress={() =>
+                      handleJoinMission(
+                        matchedMission._id,
+                        primaryNeed?._id,
+                        matchedMission.estimatedHoursPerVolunteer || 4
+                      )
+                    }
+                    loading={!!joiningNeedId}
+                    icon={<Sparkles size={15} color="#fff" />}
+                  />
+                )}
+                <View style={{ height: 10 }} />
+                <TouchableOpacity onPress={() => setOpsMission(matchedMission)}>
+                  <Text style={styles.openOps}>{t('missions.open_ops_room')} →</Text>
+                </TouchableOpacity>
+              </CivicCard>
+            ) : (
+              <CivicCard style={{ alignItems: 'center', paddingVertical: 28 }}>
+                <Compass size={32} color={civic.borderHover} />
+                <Text style={[styles.missionTitle, { textAlign: 'center', marginTop: 10 }]}>
+                  {t('browse.no_results_title')}
+                </Text>
+                <Text style={[styles.emptyDesc, { textAlign: 'center' }]}>
+                  {t('browse.no_results_desc')}
+                </Text>
+              </CivicCard>
             )}
 
-            {/* Volunteer Skills */}
-            <View style={styles.card}>
+            <CivicCard style={{ marginTop: 14 }}>
               <Text style={[styles.sectionHeader, { textAlign }]}>{t('match.skillsHeader')}</Text>
-              <View style={[styles.skillsRow, { justifyContent: isRTL ? 'flex-end' : 'flex-start', flexWrap: 'wrap', gap: 6 }]}>
-                {currentUser?.skills && currentUser.skills.length > 0 ? (
+              <View style={[styles.skillsRow, { justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}>
+                {currentUser?.skills?.length > 0 ? (
                   currentUser.skills.map((s: string) => {
                     const opt = AVAILABLE_SKILLS.find((o) => o.id === s);
                     const label =
@@ -511,90 +559,141 @@ function VolunovaMobileApp() {
                   })
                 ) : (
                   <>
-                    <View style={styles.skillChip}><Text style={styles.skillText}>{t('match.skillDesign')}</Text></View>
-                    <View style={styles.skillChip}><Text style={styles.skillText}>{t('match.skillDrone')}</Text></View>
-                    <View style={styles.skillChip}><Text style={styles.skillText}>{t('match.skillPhoto')}</Text></View>
+                    <View style={styles.skillChip}>
+                      <Text style={styles.skillText}>{t('match.skillDesign')}</Text>
+                    </View>
+                    <View style={styles.skillChip}>
+                      <Text style={styles.skillText}>{t('match.skillPhoto')}</Text>
+                    </View>
                   </>
                 )}
               </View>
-            </View>
+            </CivicCard>
           </View>
         )}
 
         {activeTab === 'browse' && (
           <View>
-            {missions.length > 0 ? (
-              missions.map((m) => {
-                const pct = m.totalSlotsNeeded > 0
-                  ? Math.round((m.totalSlotsFilled / m.totalSlotsNeeded) * 100)
-                  : 0;
-                return (
-                  <View key={m._id} style={styles.card}>
-                    <View style={[styles.cardTopRow, { flexDirection }]}>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>{m.category}</Text>
-                      </View>
-                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>📍 {m.venueName}</Text>
-                    </View>
-                    <Text style={[styles.cardTitle, { textAlign }]}>{m.title}</Text>
-                    <Text style={[styles.cardDesc, { textAlign }]} numberOfLines={3}>{m.description}</Text>
+            <Text style={styles.pageBadge}>{t('browse.badge')}</Text>
+            <Text style={[styles.pageTitle, { textAlign }]}>{t('browse.title')}</Text>
+            <Text style={[styles.pageSub, { textAlign }]}>{t('browse.subtitle')}</Text>
 
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressLabels, { flexDirection }]}>
-                        <Text style={styles.progressLabelText}>{m.totalSlotsFilled}/{m.totalSlotsNeeded} {t('match.progressStaffed')}</Text>
-                        <Text style={styles.progressPctText}>{pct}%</Text>
-                      </View>
-                      <View style={styles.progressBarTrack}>
-                        <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(5, pct))}%` }]} />
-                      </View>
-                    </View>
-                  </View>
-                );
-              })
+            <View style={styles.searchBar}>
+              <Search size={16} color={civic.muted} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('browse.search_placeholder')}
+                placeholderTextColor={civic.mutedSoft}
+                style={[styles.searchInput, { textAlign }]}
+              />
+              <TouchableOpacity onPress={fetchMissions}>
+                <RefreshCw size={16} color={civic.teal} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {CATEGORIES.map((cat) => {
+                  const active = selectedCat === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => setSelectedCat(cat)}
+                      style={[styles.catChip, active && styles.catChipOn]}
+                    >
+                      <Text style={[styles.catText, active && styles.catTextOn]}>
+                        {t(`categories.${cat}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {loadingMissions ? (
+              <ActivityIndicator color={civic.teal} style={{ marginTop: 24 }} />
+            ) : filteredMissions.length === 0 ? (
+              <CivicCard style={{ alignItems: 'center', paddingVertical: 28 }}>
+                <Compass size={32} color={civic.borderHover} />
+                <Text style={[styles.missionTitle, { textAlign: 'center', marginTop: 8 }]}>
+                  {t('browse.no_results_title')}
+                </Text>
+                <Text style={[styles.emptyDesc, { textAlign: 'center' }]}>
+                  {t('browse.no_results_desc')}
+                </Text>
+              </CivicCard>
             ) : (
-              <View style={[styles.card, { alignItems: 'center', paddingVertical: 28 }]}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>📋</Text>
-                <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
-                  {locale === 'ar' ? 'سجل المبادرات فارغ' : locale === 'fr' ? 'Aucune mission publiée' : 'No published missions'}
-                </Text>
-                <Text style={[styles.cardDesc, { textAlign: 'center', marginTop: 4 }]}>
-                  {locale === 'ar' ? 'سوف تظهر المبادرات هنا بمجرد إنشائها عبر لوحة التحكم.' : locale === 'fr' ? 'Les initiatives créées apparaîtront ici en temps réel.' : 'Created initiatives will appear here in real time.'}
-                </Text>
+              <View style={[styles.grid, columns > 1 && styles.grid2]}>
+                {filteredMissions.map((m) => (
+                  <View key={m._id} style={columns > 1 ? { width: '48%' } : undefined}>
+                    <MissionCard
+                      mission={m}
+                      t={t}
+                      textAlign={textAlign}
+                      flexDirection={flexDirection}
+                      onOpen={() => setOpsMission(m)}
+                    />
+                  </View>
+                ))}
               </View>
             )}
           </View>
         )}
 
         {activeTab === 'passport' && (
-          <View style={styles.card}>
+          <CivicCard>
+            <Award size={28} color={civic.teal} style={{ alignSelf: 'center', marginBottom: 8 }} />
             <Text style={styles.passportTitle}>{t('passport.title')}</Text>
             <Text style={styles.passportSub}>{t('passport.subtitle')}</Text>
-
-            <View style={styles.qrSimulation}>
-              <Text style={styles.qrText}>{t('passport.qrTitle')}</Text>
+            <View style={styles.qrBox}>
+              <QrCode size={42} color={civic.teal} />
+              <Text style={styles.qrTitle}>{t('passport.qrTitle')}</Text>
               <Text style={styles.qrId}>{t('passport.qrId')}</Text>
             </View>
-
             <Text style={[styles.sectionHeader, { textAlign }]}>{t('passport.badgesHeader')}</Text>
             <View style={styles.badgesGrid}>
               <View style={styles.badgeCard}>
-                <Text style={styles.badgeIcon}>🌲</Text>
+                <TreePine size={22} color={civic.teal} />
                 <Text style={styles.badgeName}>{t('passport.badgeEco')}</Text>
               </View>
               <View style={styles.badgeCard}>
-                <Text style={styles.badgeIcon}>🎨</Text>
+                <Palette size={22} color={civic.teal} />
                 <Text style={styles.badgeName}>{t('passport.badgeArt')}</Text>
               </View>
               <View style={styles.badgeCard}>
-                <Text style={styles.badgeIcon}>⚡</Text>
+                <Zap size={22} color={civic.teal} />
                 <Text style={styles.badgeName}>{t('passport.badgeSpeed')}</Text>
               </View>
             </View>
-          </View>
+          </CivicCard>
         )}
       </ScrollView>
 
-      {/* Real-time Volunteer Notifications Modal */}
+      <View style={[styles.tabBar, { height: tabBarHeight, paddingBottom: isPhone ? 10 : 12 }]}>
+        {(
+          [
+            { id: 'matched' as const, label: t('tabs.matched'), Icon: Sparkles },
+            { id: 'browse' as const, label: t('tabs.browse'), Icon: Compass },
+            { id: 'passport' as const, label: t('tabs.passport'), Icon: Award },
+          ] as const
+        ).map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.tabItem, active && styles.tabItemOn]}
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <tab.Icon size={18} color={active ? civic.teal : civic.muted} />
+              <Text style={[styles.tabLabel, active && styles.tabLabelOn]} numberOfLines={1}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <NotificationsModal
         visible={notifModalVisible}
         onClose={() => setNotifModalVisible(false)}
@@ -602,6 +701,19 @@ function VolunovaMobileApp() {
         loading={loadingNotifications}
         onMarkAllRead={handleMarkAllNotificationsRead}
         onSelectMission={handleOpenMissionFromNotification}
+      />
+
+      <MissionOpsSheet
+        visible={!!opsMission}
+        mission={opsMission}
+        joiningNeedId={joiningNeedId}
+        joinedNeedIds={joinedNeedIds}
+        onClose={() => setOpsMission(null)}
+        onJoin={handleJoinMission}
+        t={t}
+        isRTL={isRTL}
+        textAlign={textAlign}
+        flexDirection={flexDirection}
       />
     </SafeAreaView>
   );
@@ -618,368 +730,388 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  boot: {
     flex: 1,
-    backgroundColor: '#060A12',
+    backgroundColor: civic.background,
   },
   header: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: civic.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2B4D',
-    backgroundColor: '#0A1224',
-    gap: 6,
+    borderBottomColor: civic.border,
+    zIndex: 20,
+    overflow: 'visible',
+    ...civicShadow.header,
   },
-  headerProfile: {
+  headerTop: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  avatar: {
+  iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#60A5FA',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  greeting: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  userName: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  badgeContainer: {
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
-  },
-  badgeText: {
-    color: '#60A5FA',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  notifBtn: {
-    position: 'relative',
-    backgroundColor: '#0F1A36',
-    width: 34,
-    height: 34,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#253761',
+    borderColor: civic.border,
+    backgroundColor: civic.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  notifBtnIcon: {
-    fontSize: 15,
   },
   notifBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#EF4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    backgroundColor: civic.red,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#0A1224',
+    paddingHorizontal: 3,
   },
   notifBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
-  logoutBtn: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+  profileRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    gap: 8,
+  },
+  profileLeft: {
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
+    backgroundColor: civic.teal,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoutBtnText: {
+  avatarText: {
+    color: '#fff',
     fontSize: 12,
+    fontWeight: '800',
   },
-  statusPillContainer: {
+  greeting: {
+    color: civic.muted,
+    fontSize: 11,
+  },
+  userName: {
+    color: civic.navy,
+    fontSize: 14,
+    fontWeight: '800',
+    maxWidth: 160,
+  },
+  hoursPill: {
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: civic.tealSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(13,122,111,0.25)',
+    borderRadius: civicRadius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  hoursText: {
+    color: civic.teal,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 6,
-    backgroundColor: '#0C1630',
+    paddingBottom: 8,
   },
   statusDot: {
     width: 7,
     height: 7,
-    borderRadius: 3.5,
+    borderRadius: 4,
   },
-  statusPillText: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  tabsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#0C1630',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1E2B4D',
-  },
-  tabButtonActive: {
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
-    borderColor: '#3B82F6',
-  },
-  tabText: {
-    color: '#94A3B8',
+  statusText: {
+    color: civic.muted,
     fontSize: 11,
     fontWeight: '600',
   },
-  tabTextActive: {
-    color: '#93C5FD',
-    fontWeight: 'bold',
+  impactGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
   },
-  scrollContent: {
-    padding: 16,
-    gap: 16,
+  impactCell: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    backgroundColor: civic.white,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: civicRadius.md,
+    padding: 12,
+    alignItems: 'center',
+  },
+  impactValue: {
+    color: civic.navy,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  impactLabel: {
+    color: civic.muted,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 2,
   },
   matchBanner: {
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    borderRadius: 16,
+    backgroundColor: civic.tealSoft,
+    borderRadius: civicRadius.lg,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.35)',
-    marginBottom: 16,
+    borderColor: 'rgba(13,122,111,0.25)',
+    marginBottom: 14,
   },
-  matchBannerTitle: {
-    color: '#60A5FA',
-    fontSize: 14,
-    fontWeight: 'bold',
+  bannerHead: {
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
-  matchBannerDesc: {
-    color: '#E2E8F0',
+  bannerTitle: {
+    color: civic.teal,
+    fontSize: 14,
+    fontWeight: '800',
+    flex: 1,
+  },
+  bannerDesc: {
+    color: civic.navy,
     fontSize: 12,
     lineHeight: 18,
   },
-  boldSky: {
-    color: '#38BDF8',
-    fontWeight: 'bold',
-  },
-  card: {
-    backgroundColor: '#0C1630',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#1E2B4D',
-    marginBottom: 16,
-  },
-  cardTopRow: {
+  cardTop: {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  categoryBadge: {
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  matchScore: {
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: civic.white,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.25)',
-  },
-  categoryText: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  matchScoreBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: 'rgba(13,122,111,0.3)',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   matchScoreText: {
-    color: '#38BDF8',
+    color: civic.teal,
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-    lineHeight: 21,
-    marginBottom: 4,
+  missionTitle: {
+    color: civic.navy,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
   },
-  cardOrg: {
-    color: '#94A3B8',
+  missionOrg: {
+    color: civic.muted,
     fontSize: 12,
     marginBottom: 12,
-  },
-  cardDesc: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 6,
+    marginTop: 4,
   },
   detailBox: {
-    backgroundColor: '#060A12',
+    backgroundColor: civic.backgroundAlt,
     borderRadius: 12,
     padding: 12,
     gap: 6,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#15213D',
+    borderColor: civic.border,
   },
   detailItem: {
-    color: '#CBD5E1',
+    color: civic.navy,
     fontSize: 12,
   },
-  joinButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 13,
-    borderRadius: 14,
+  metaLine: {
     alignItems: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  progressContainer: {
-    marginBottom: 16,
-    backgroundColor: '#060A12',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#15213D',
+    gap: 6,
   },
   progressLabels: {
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  progressLabelText: {
-    color: '#CBD5E1',
+  progressLabel: {
+    color: civic.muted,
     fontSize: 11,
     fontWeight: '600',
   },
-  progressPctText: {
-    color: '#10B981',
+  progressPct: {
+    color: civic.teal,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  progressBarTrack: {
-    height: 8,
-    backgroundColor: '#15213D',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
-  },
-  joinedSuccessBox: {
-    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+  joinedBox: {
+    backgroundColor: civic.tealSoft,
     borderRadius: 14,
     padding: 14,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#10B981',
+    borderWidth: 1,
+    borderColor: civic.successBorder,
+    gap: 4,
   },
-  joinedSuccessText: {
-    color: '#10B981',
+  joinedTitle: {
+    color: civic.teal,
     fontSize: 13,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '800',
   },
-  joinedSubText: {
-    color: '#6EE7B7',
+  joinedSub: {
+    color: civic.navySoft,
     fontSize: 11,
     textAlign: 'center',
   },
-  sectionHeader: {
-    color: '#FFFFFF',
+  openOps: {
+    textAlign: 'center',
+    color: civic.teal,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
+  },
+  emptyDesc: {
+    color: civic.muted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  sectionHeader: {
+    color: civic.navy,
+    fontSize: 13,
+    fontWeight: '800',
     marginBottom: 8,
   },
   skillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   skillChip: {
-    backgroundColor: '#15213D',
+    backgroundColor: civic.tealSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1E2B4D',
+    borderColor: 'rgba(13,122,111,0.2)',
   },
   skillText: {
-    color: '#93C5FD',
+    color: civic.teal,
     fontSize: 11,
+    fontWeight: '700',
+  },
+  pageBadge: {
+    color: civic.teal,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  pageTitle: {
+    color: civic.navy,
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  pageSub: {
+    color: civic.muted,
+    fontSize: 13,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: civic.white,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: civicRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: civic.navy,
+    fontSize: 14,
+    paddingVertical: 4,
+  },
+  catChip: {
+    backgroundColor: civic.white,
+    borderWidth: 1,
+    borderColor: civic.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  catChipOn: {
+    backgroundColor: civic.navy,
+    borderColor: civic.navy,
+  },
+  catText: {
+    color: civic.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  catTextOn: {
+    color: '#fff',
+  },
+  grid: {
+    gap: 12,
+  },
+  grid2: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   passportTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: civic.navy,
+    fontSize: 18,
+    fontWeight: '800',
     textAlign: 'center',
   },
   passportSub: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: civic.muted,
+    fontSize: 12,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+    marginTop: 4,
   },
-  qrSimulation: {
-    backgroundColor: '#060A12',
+  qrBox: {
+    backgroundColor: civic.backgroundAlt,
     borderRadius: 14,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1E2B4D',
+    borderColor: civic.border,
     marginBottom: 16,
+    gap: 6,
   },
-  qrText: {
-    color: '#38BDF8',
+  qrTitle: {
+    color: civic.teal,
     fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '800',
   },
   qrId: {
-    color: '#64748B',
-    fontSize: 10,
+    color: civic.mutedSoft,
+    fontSize: 11,
   },
   badgesGrid: {
     flexDirection: 'row',
@@ -988,58 +1120,82 @@ const styles = StyleSheet.create({
   },
   badgeCard: {
     alignItems: 'center',
-    gap: 4,
-  },
-  badgeIcon: {
-    fontSize: 26,
+    gap: 6,
   },
   badgeName: {
-    color: '#CBD5E1',
-    fontSize: 10,
-    fontWeight: '600',
+    color: civic.navy,
+    fontSize: 11,
+    fontWeight: '700',
   },
-  toastContainer: {
+  tabBar: {
     position: 'absolute',
-    top: 50,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    backgroundColor: civic.white,
+    borderTopWidth: 1,
+    borderTopColor: civic.border,
+    paddingTop: 8,
+    paddingHorizontal: 8,
+    ...civicShadow.header,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 12,
+    paddingVertical: 6,
+  },
+  tabItemOn: {
+    backgroundColor: civic.tealSoft,
+  },
+  tabLabel: {
+    color: civic.muted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  tabLabelOn: {
+    color: civic.teal,
+  },
+  toastWrap: {
+    position: 'absolute',
+    top: 54,
     left: 16,
     right: 16,
-    zIndex: 9999,
-    elevation: 10,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    zIndex: 50,
   },
   toastCard: {
-    backgroundColor: '#0A1329',
+    backgroundColor: civic.white,
     borderRadius: 16,
     padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#10B981',
+    borderWidth: 1,
+    borderColor: civic.successBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...civicShadow.raised,
   },
   toastTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 2,
+    fontWeight: '800',
+    color: civic.navy,
   },
   toastBody: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: civic.muted,
     lineHeight: 16,
-    marginBottom: 4,
   },
-  toastActionText: {
+  toastAction: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#34D399',
+    fontWeight: '800',
+    color: civic.teal,
+    marginTop: 2,
   },
-  toastCloseBtn: {
-    padding: 4,
-  },
-  toastCloseText: {
-    color: '#64748B',
+  toastClose: {
+    color: civic.mutedSoft,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
 });

@@ -13,7 +13,6 @@ import aiRoutes from './routes/ai';
 import notificationRoutes from './routes/notifications';
 import reviewRoutes from './routes/reviews';
 import statsRoutes from './routes/stats';
-import seedRoutes from './routes/seed';
 import adminRoutes from './routes/admin';
 import skillsRoutes from './routes/skills';
 
@@ -72,7 +71,6 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/stats', statsRoutes);
-app.use('/api/seed', seedRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/skills', skillsRoutes);
 
@@ -99,44 +97,17 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-import bcrypt from 'bcryptjs';
-import { User } from './models';
-
-async function ensureDefaultAdmin() {
-  try {
-    const existing = await User.findOne({ email: 'admin@gmail.com' });
-    if (!existing) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('admin1234', salt);
-      await User.create({
-        name: 'Administrateur Système',
-        email: 'admin@gmail.com',
-        passwordHash,
-        role: 'admin',
-        city: 'Alger',
-        impactHours: 0,
-        reliabilityScore: 100,
-      });
-      console.log('✅ [Admin Init] Standard admin account created (admin@gmail.com)');
-    }
-  } catch (e) {
-    console.warn('[Admin Init Warning]', e);
-  }
-}
-
 // Start Server & Connect Database (Dual-stack IPv4 and IPv6)
 async function startServer() {
   server.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`🚀 VOLUNOVA Backend running on port: ${PORT} (Dual-Stack IPv4/IPv6 with Real-Time WebSockets)`);
     console.log(`📡 Health check: http://127.0.0.1:${PORT}/api/health`);
-    console.log(`⚡ 1-Click Demo Seed: POST http://127.0.0.1:${PORT}/api/seed`);
     console.log(`====================================================`);
   });
 
   try {
     await connectDB();
-    await ensureDefaultAdmin();
   } catch (err) {
     console.warn('[MongoDB Initialization]', err);
   }

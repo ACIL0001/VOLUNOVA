@@ -5,11 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  RefreshCw,
-  CheckCircle2,
   Menu,
   X,
-  PlusCircle,
   ShieldCheck,
   Compass,
   LayoutDashboard,
@@ -37,8 +34,6 @@ export default function Navbar() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const [seeding, setSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
@@ -139,21 +134,6 @@ export default function Navbar() {
     }
   };
 
-  const handleSeed = async () => {
-    setSeeding(true);
-    try {
-      await api.seedDatabase();
-      setSeedSuccess(true);
-      setTimeout(() => setSeedSuccess(false), 3000);
-      window.location.reload();
-    } catch (err: any) {
-      console.error('Seed failed:', err);
-      alert('Could not seed database. Make sure backend is running on port 5000.');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const handleLogout = () => {
     logout();
     setAvatarMenuOpen(false);
@@ -245,29 +225,23 @@ export default function Navbar() {
           </nav>
 
           <div className="hidden sm:flex items-center gap-2.5">
-            {/* Quick Seed Button */}
-            <button
-              onClick={handleSeed}
-              disabled={seeding}
-              title={t('nav.seed')}
-              aria-label={t('nav.seed')}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8e0ea] bg-white text-[#5b6b7c] hover:text-[#0b1f3a] hover:border-[#b8c6d6] transition-colors"
-            >
-              {seedSuccess ? (
-                <CheckCircle2 className="h-4 w-4 text-[#0d7a6f]" />
-              ) : (
-                <RefreshCw className={`h-4 w-4 ${seeding ? 'animate-spin text-[#0d7a6f]' : ''}`} />
-              )}
-            </button>
-
-            {/* Create Mission CTA - Only shown when user is logged in (specifically organization or admin) */}
-            {user && (user.role === 'organization' || user.role === 'admin') && (
+            {/* Org / admin: go to secured dashboard (not create mission on public chrome) */}
+            {user && user.role === 'organization' && (
               <Link
-                href="/missions/create"
+                href="/dashboard"
                 className="btn-primary inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold whitespace-nowrap"
               >
-                <PlusCircle className="h-4 w-4" />
-                <span>{t('nav.create_mission')}</span>
+                <LayoutDashboard className="h-4 w-4" />
+                <span>{t('auth.go_dashboard')}</span>
+              </Link>
+            )}
+            {user && user.role === 'admin' && (
+              <Link
+                href="/admin"
+                className="btn-primary inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold whitespace-nowrap"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>{t('auth.admin_portal')}</span>
               </Link>
             )}
 
@@ -418,11 +392,20 @@ export default function Navbar() {
                       </Link>
                       {user.role === 'organization' && (
                         <Link
-                          href="/missions/create"
+                          href="/dashboard"
                           className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
                         >
-                          <PlusCircle className="h-4 w-4 text-[#0d7a6f]" />
-                          <span>{t('nav.create_mission')}</span>
+                          <LayoutDashboard className="h-4 w-4 text-[#0d7a6f]" />
+                          <span>{t('auth.go_dashboard')}</span>
+                        </Link>
+                      )}
+                      {user.role === 'admin' && (
+                        <Link
+                          href="/admin"
+                          className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0b1f3a] hover:bg-[#f3f5f8] transition-colors"
+                        >
+                          <ShieldCheck className="h-4 w-4 text-[#0d7a6f]" />
+                          <span>{t('auth.admin_portal')}</span>
                         </Link>
                       )}
                     </div>
@@ -547,14 +530,24 @@ export default function Navbar() {
                 </Link>
               );
             })}
-            {user && (user.role === 'organization' || user.role === 'admin') && (
+            {user && user.role === 'organization' && (
               <Link
-                href="/missions/create"
+                href="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
                 className="btn-primary mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold"
               >
-                <PlusCircle className="h-4 w-4" />
-                {t('nav.create_mission')}
+                <LayoutDashboard className="h-4 w-4" />
+                {t('auth.go_dashboard')}
+              </Link>
+            )}
+            {user && user.role === 'admin' && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="btn-primary mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {t('auth.admin_portal')}
               </Link>
             )}
           </div>

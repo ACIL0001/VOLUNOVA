@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   ShieldCheck,
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, postAuthPath } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
 
 export default function LoginPage() {
@@ -29,10 +29,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // If already logged in, redirect
+  // If already logged in, redirect by role
   React.useEffect(() => {
     if (user) {
-      router.push('/missions/browse');
+      const redirectParam =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('redirect')
+          : null;
+      router.push(postAuthPath(user.role, redirectParam));
     }
   }, [user, router]);
 
@@ -63,13 +67,7 @@ export default function LoginPage() {
         : null;
 
       setTimeout(() => {
-        if (redirectParam) {
-          router.push(redirectParam);
-        } else if (res?.user?.role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/missions/browse');
-        }
+        router.push(postAuthPath(res?.user?.role, redirectParam));
       }, 500);
     } catch (err: any) {
       setError(err?.message || 'Identifiants invalides ou serveur indisponible.');
@@ -92,13 +90,7 @@ export default function LoginPage() {
         : null;
 
       setTimeout(() => {
-        if (redirectParam) {
-          router.push(redirectParam);
-        } else if (res?.user?.role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/missions/browse');
-        }
+        router.push(postAuthPath(res?.user?.role, redirectParam));
       }, 500);
     } catch (err: any) {
       setError(err?.message || 'Connexion administrateur échouée.');

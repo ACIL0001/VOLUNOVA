@@ -186,6 +186,11 @@ class ApiService {
     return this.request<Mission>(`/missions/${id}`);
   }
 
+  /** Organization dashboard: own missions only (JWT + role required). */
+  async getMyMissions(): Promise<{ organization: any; missions: Mission[] }> {
+    return this.request<{ organization: any; missions: Mission[] }>('/missions/mine');
+  }
+
   async createMission(data: any): Promise<Mission> {
     return this.request<Mission>('/missions', {
       method: 'POST',
@@ -208,14 +213,7 @@ class ApiService {
     });
   }
 
-  // 4. Seed Database
-  async seedDatabase(): Promise<any> {
-    return this.request<any>('/seed', {
-      method: 'POST',
-    });
-  }
-
-  // 5. Auth
+  // 4. Auth
   async login(email: string, password: string): Promise<any> {
     const res = await this.request<{ token: string; user: any }>('/auth/login', {
       method: 'POST',

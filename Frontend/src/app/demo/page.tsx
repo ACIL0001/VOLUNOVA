@@ -13,7 +13,6 @@ import {
   Smartphone,
   Check,
 } from 'lucide-react';
-import { api } from '@/lib/api';
 import { useTranslation } from '@/context/LanguageContext';
 
 export default function DualScreenDemoPage() {
@@ -39,12 +38,6 @@ export default function DualScreenDemoPage() {
   const handleVolunteerJoin = async () => {
     if (designerFilled) return;
     setJoining(true);
-
-    try {
-      await api.seedDatabase().catch(() => null);
-    } catch {
-      // safe fallback
-    }
 
     setTimeout(() => {
       setDesignerFilled(true);

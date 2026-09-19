@@ -37,7 +37,6 @@ npm install
 npm run dev
 ```
 * **API Health Check**: `http://localhost:5000/api/health`
-* **1-Click Demo Seed**: `POST http://localhost:5000/api/seed`
 * **Automated Emails**: Uses Nodemailer SMTP / Resend. If no credentials are set, automatically generates an Ethereal test account with instant browser preview URLs.
 
 ---

@@ -19,13 +19,12 @@ import {
   Tag,
   Wrench,
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, postAuthPath } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { api } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signup } = useAuth();
   const { t } = useTranslation();
 
   const [role, setRole] = useState<'organization' | 'volunteer'>('organization');
@@ -40,10 +39,10 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // If already logged in, redirect
+  // If already logged in, redirect by role
   React.useEffect(() => {
     if (user) {
-      router.push('/missions/browse');
+      router.push(postAuthPath(user.role));
     }
   }, [user, router]);
 
@@ -66,22 +65,19 @@ export default function RegisterPage() {
         ? skillsInput.split(',').map((s) => s.trim()).filter(Boolean)
         : [];
 
-      await api.signup({
+      const res = await signup({
         name,
         email,
         password,
         role,
         city,
-        ...(role === 'organization' ? { category } : { skills: skillsArray }),
+        ...(role === 'organization' ? { category, orgName: name } : { skills: skillsArray }),
       });
-
-      // Clear any auto-saved token so user logs in on the login page as requested
-      api.clearToken();
 
       setSuccessMsg(t('auth.account_created'));
       setTimeout(() => {
-        router.push('/login?registered=true');
-      }, 700);
+        router.push(postAuthPath(res?.user?.role || role));
+      }, 500);
     } catch (err: any) {
       setError(err?.message || "Erreur lors de l'inscription. Veuillez vérifier vos données.");
     } finally {

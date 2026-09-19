@@ -66,6 +66,64 @@ router.get('/', optionalToken, async (req: AuthenticatedRequest, res: Response) 
   }
 });
 
+// GET /api/missions/mine — Organization's own missions only (BOLA: ownership via org.userId)
+router.get(
+  '/mine',
+  authenticateToken,
+  requireRole(['organization', 'admin']),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+
+      let org = await Organization.findOne({ userId }).lean();
+
+      // Admins may inspect a specific org via ?orgId=
+      if (role === 'admin' && req.query.orgId) {
+        org = await Organization.findById(String(req.query.orgId)).lean();
+      }
+
+      if (!org) {
+        return res.json({
+          ok: true,
+          data: { organization: null, missions: [] },
+        });
+      }
+
+      // Non-admin: enforce ownership (BOLA)
+      if (role !== 'admin' && String(org.userId) !== String(userId)) {
+        return res.status(403).json({
+          ok: false,
+          error: { code: 'FORBIDDEN', message: 'You do not own this organization.' },
+        });
+      }
+
+      const missions = await Mission.find({ orgId: org._id })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+
+      const missionIds = missions.map((m) => m._id);
+      const allNeeds = await MissionNeed.find({ missionId: { $in: missionIds } }).lean();
+
+      const enriched = missions.map((m) => ({
+        ...m,
+        needs: allNeeds.filter((n) => n.missionId.toString() === m._id.toString()),
+      }));
+
+      return res.json({
+        ok: true,
+        data: {
+          organization: org,
+          missions: enriched,
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    }
+  }
+);
+
 // GET /api/missions/:id
 router.get('/:id', optionalToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
