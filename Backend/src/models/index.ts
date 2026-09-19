@@ -274,6 +274,8 @@ const CommunityChallengeSchema = new Schema({
   },
   targetQuantity: { type: Number, required: true, min: 1 },
   currentQuantity: { type: Number, default: 0, min: 0 },
+  unitAr: { type: String, default: 'مستفيد', trim: true },
+  unitFr: { type: String, default: 'bénéficiaire', trim: true },
   neighborhood: { type: String, default: 'Bab Ezzouar', trim: true, index: true },
   city: { type: String, default: 'Algiers', trim: true },
   startDate: { type: Date, default: Date.now },
@@ -296,7 +298,7 @@ CommunityChallengeSchema.index({ neighborhood: 1, status: 1 });
 
 // 12. APPRECIATION SCHEMA — Real Human Gratitude From Peers & Organizers
 const AppreciationSchema = new Schema({
-  missionId: { type: Schema.Types.ObjectId, ref: 'Mission', required: true, index: true },
+  missionId: { type: Schema.Types.ObjectId, ref: 'Mission', required: false, index: true },
   fromUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   toUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   kind: {
@@ -315,7 +317,7 @@ const AppreciationSchema = new Schema({
   note: { type: String, trim: true, maxlength: 500, default: '' },
 }, { timestamps: true });
 
-AppreciationSchema.index({ missionId: 1, fromUserId: 1, toUserId: 1 }, { unique: true });
+AppreciationSchema.index({ missionId: 1, fromUserId: 1, toUserId: 1 }, { sparse: true });
 AppreciationSchema.index({ toUserId: 1, createdAt: -1 });
 
 export const User = models.User || model('User', UserSchema);

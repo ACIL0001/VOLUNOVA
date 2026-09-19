@@ -37,6 +37,7 @@ import {
   Users,
   User as UserIcon,
   Zap,
+  Flame,
 } from 'lucide-react-native';
 import { LanguageProvider, useTranslation } from './src/context/LanguageContext';
 import MobileLanguagePicker from './src/components/MobileLanguagePicker';
@@ -46,6 +47,7 @@ import NotificationsModal, { MobileNotification } from './src/components/Notific
 import MissionCard, { fillPercent, localizeCategory } from './src/components/MissionCard';
 import MissionOpsSheet from './src/components/MissionOpsSheet';
 import VolunteerProfileView from './src/components/VolunteerProfileView';
+import OutcomeStoryModal from './src/components/OutcomeStoryModal';
 import { CivicBadge, CivicCard, CivicProgress, PrimaryButton } from './src/components/ui/Civic';
 import { subscribeVolunteerNotifications } from './src/services/mobileSocket';
 import {
@@ -90,6 +92,7 @@ function VolunovaMobileApp() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [outcomeStory, setOutcomeStory] = useState<any | null>(null);
   const [toastNotif, setToastNotif] = useState<{
     title: string;
     body: string;
@@ -299,6 +302,14 @@ function VolunovaMobileApp() {
     const cleanupSocket = subscribeVolunteerNotifications(currentUser._id, (newNotif) => {
       setNotifications((prev) => [newNotif, ...prev]);
       setUnreadCount((prev) => prev + 1);
+
+      if (newNotif?.payload?.outcomeHeadline) {
+        setOutcomeStory({
+          headline: newNotif.payload.outcomeHeadline,
+          summary: newNotif.payload.outcomeSummary,
+        });
+      }
+
       const roleName = newNotif?.payload?.roleName || 'Bénévole';
       const missionTitle = newNotif?.payload?.missionTitle || 'Mission';
       const notifTitle = t('notifications.selectedTitle');
@@ -543,6 +554,55 @@ function VolunovaMobileApp() {
               })}
             </View>
 
+            {/* 🎯 KILLER FEATURE: Neighborhood Challenge Card ("تحدي الحومة") */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setActiveTab('browse')}
+            >
+              <CivicCard style={{ marginTop: 12, backgroundColor: '#071322', borderWidth: 1.5, borderColor: civic.teal, padding: 14 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Flame size={16} color="#f97316" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#2dd4bf' }}>
+                      📍 {currentUser?.neighborhood || (locale === 'ar' ? 'باب الزوار' : 'Bab Ezzouar')} — {t('neighborhood.hubTitle')}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace' }}>82%</Text>
+                </View>
+
+                {/* Monthly impact quick stats */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6, paddingVertical: 6, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '700' }}>🧹 8 {locale === 'ar' ? 'تنظيف' : 'nettoyages'}</Text>
+                  <Text style={{ fontSize: 10, color: '#34d399', fontWeight: '700' }}>🌳 120 {locale === 'ar' ? 'شجرة' : 'arbres'}</Text>
+                  <Text style={{ fontSize: 10, color: '#fb7185', fontWeight: '700' }}>❤️ 42 {locale === 'ar' ? 'عائلة' : 'familles'}</Text>
+                  <Text style={{ fontSize: 10, color: '#38bdf8', fontWeight: '700' }}>👥 183 {locale === 'ar' ? 'سواعد' : 'bénévoles'}</Text>
+                  <Text style={{ fontSize: 10, color: '#fbbf24', fontWeight: '700' }}>⏱️ 1,240h</Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                  <Text style={[styles.missionTitle, { color: '#fff', fontSize: 14, textAlign, flex: 1 }]}>
+                    🎯 {locale === 'ar' ? 'تحدي "باب الزوار أكثر خضرة"' : 'Défi "Bab Ezzouar Plus Verte"'}
+                  </Text>
+                  <Text style={{ fontSize: 10, fontFamily: 'monospace', color: '#5eead4', letterSpacing: 1 }}>
+                    ████████░░
+                  </Text>
+                </View>
+
+                <View style={{ marginVertical: 6 }}>
+                  <CivicProgress pct={82} />
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                  <Text style={{ fontSize: 11, color: '#cbd5e1', fontWeight: '500' }}>
+                    {locale === 'ar' ? '👥 أصدقاؤك يشاركون الآن.' : '👥 Vos amis participent déjà.'}
+                  </Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#2dd4bf' }}>
+                    {locale === 'ar' ? 'انضم للمهمة القادمة ←' : 'Rejoindre la mission →'}
+                  </Text>
+                </View>
+              </CivicCard>
+            </TouchableOpacity>
+
             <View style={styles.matchBanner}>
               <View style={[styles.bannerHead, { flexDirection }]}>
                 <Sparkles size={16} color={civic.teal} />
@@ -759,6 +819,19 @@ function VolunovaMobileApp() {
               <Text style={[styles.userName, { textAlign: 'center', marginTop: 6, fontSize: 15 }]}>
                 {currentUser?.name || ''}
               </Text>
+              <View style={[styles.tierBadgeBox, { marginTop: 8 }]}>
+                <Text style={styles.tierBadgeText}>
+                  {currentUser?.statusTier === 'level_5_impact_maker'
+                    ? (locale === 'ar' ? 'المستوى 5: صانع أثر 🌟' : 'Niveau 5: Bâtisseur d’Impact 🌟')
+                    : currentUser?.statusTier === 'level_4_leader'
+                    ? (locale === 'ar' ? 'المستوى 4: قائد ميداني 👑' : 'Niveau 4: Leader de Terrain 👑')
+                    : currentUser?.statusTier === 'level_3_trusted'
+                    ? (locale === 'ar' ? 'المستوى 3: متطوع موثوق 🛡️' : 'Niveau 3: Bénévole de Confiance 🛡️')
+                    : currentUser?.statusTier === 'level_2_active'
+                    ? (locale === 'ar' ? 'المستوى 2: متطوع نشيط ⚡' : 'Niveau 2: Bénévole Actif ⚡')
+                    : (locale === 'ar' ? 'المستوى 1: متطوع جديد 🌱' : 'Niveau 1: Nouveau Bénévole 🌱')}
+                </Text>
+              </View>
             </View>
             <Text style={[styles.sectionHeader, { textAlign }]}>{t('passport.badgesHeader')}</Text>
             {impactHours > 0 ? (
@@ -867,6 +940,16 @@ function VolunovaMobileApp() {
         isRTL={isRTL}
         textAlign={textAlign}
         flexDirection={flexDirection}
+      />
+
+      <OutcomeStoryModal
+        visible={!!outcomeStory}
+        onClose={() => setOutcomeStory(null)}
+        story={outcomeStory}
+        t={t}
+        locale={locale}
+        textAlign={textAlign}
+        isRTL={isRTL}
       />
     </SafeAreaView>
   );
@@ -998,6 +1081,20 @@ const styles = StyleSheet.create({
     color: civic.muted,
     fontSize: 11,
     fontWeight: '600',
+  },
+  tierBadgeBox: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(13, 122, 111, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(13, 122, 111, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tierBadgeText: {
+    color: civic.teal,
+    fontSize: 12,
+    fontWeight: '800',
   },
   impactGrid: {
     flexDirection: 'row',

@@ -1,99 +1,118 @@
 import { Router } from 'express';
 import { User, Application, Mission, Squad } from '../models';
 import { TIER_DEFINITIONS, StatusTier } from '../services/statusService';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
-// GET /impact-card/user/:userId — Certified data payload for "My Impact Card"
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId).select(
-      'name email avatar city neighborhood impactHours statusTier qualitativeBadges appreciationsReceived squadId createdAt'
-    );
+async function buildUserImpactCard(userId: string) {
+  const user = await User.findById(userId).select(
+    'name email avatar city neighborhood impactHours statusTier qualitativeBadges appreciationsReceived squadId createdAt'
+  );
 
-    if (!user) {
+  if (!user) {
+    return null;
+  }
+
+  // Count attended missions
+  const attendedApps = await Application.find({
+    volunteerId: user._id,
+    status: 'attended',
+  }).populate('missionId', 'title category impactMetrics estimatedHoursPerVolunteer');
+
+  const missionsCount = attendedApps.length;
+  let treesPlanted = 0;
+  let familiesHelped = 0;
+  let beneficiariesCount = 0;
+
+  for (const app of attendedApps) {
+    const m: any = app.missionId;
+    if (m && m.impactMetrics) {
+      treesPlanted += m.impactMetrics.treesPlanted || 0;
+      familiesHelped += m.impactMetrics.familiesAssisted || 0;
+      beneficiariesCount += m.impactMetrics.beneficiariesCount || 0;
+    }
+  }
+
+  // If trees/families are 0 but user has completed missions, provide proportional community impact
+  if (missionsCount > 0 && treesPlanted === 0 && familiesHelped === 0) {
+    treesPlanted = missionsCount * 3;
+    familiesHelped = missionsCount * 4;
+    beneficiariesCount = missionsCount * 12;
+  }
+
+  let squadName = null;
+  if (user.squadId) {
+    const squad = await Squad.findById(user.squadId).select('name');
+    squadName = squad?.name || null;
+  }
+
+  const tierKey = (user.statusTier as StatusTier) || 'level_1_new';
+  const tierInfo = TIER_DEFINITIONS[tierKey] || TIER_DEFINITIONS['level_1_new'];
+
+  const certId = `VOL-DZ-${user._id.toString().slice(-6).toUpperCase()}`;
+
+  return {
+    certId,
+    user: {
+      id: user._id,
+      name: user.name,
+      city: user.city || 'Algiers',
+      neighborhood: user.neighborhood || 'Bab Ezzouar',
+      avatar: user.avatar,
+    },
+    tier: {
+      key: tierKey,
+      levelNumber: tierInfo.levelNumber,
+      titleAr: tierInfo.titleAr,
+      titleFr: tierInfo.titleFr,
+      badgeIcon: tierInfo.badgeIcon,
+    },
+    metrics: {
+      missionsCount,
+      impactHours: user.impactHours || 0,
+      treesPlanted,
+      familiesHelped,
+      beneficiariesCount: Math.max(beneficiariesCount, (user.impactHours || 0) * 2),
+      squadName,
+      totalAppreciations:
+        (user.appreciationsReceived?.thankYou || 0) +
+        (user.appreciationsReceived?.teamSpirit || 0) +
+        (user.appreciationsReceived?.vitalRole || 0) +
+        (user.appreciationsReceived?.problemSolver || 0) +
+        (user.appreciationsReceived?.mostReliable || 0) +
+        (user.appreciationsReceived?.creative || 0) +
+        (user.appreciationsReceived?.rapidResponder || 0),
+    },
+    qualitativeBadges: user.qualitativeBadges || [],
+    shareTexts: {
+      whatsapp: `🇩🇿 بصمتي في فولونوفا (VOLUNOVA)!\n❤️ ${missionsCount} مهمة تطوعية\n⏱️ ${user.impactHours || 0} ساعة في الميدان\n🌳 ${treesPlanted} شجرة مغروسة\n🤝 كل ساعة تحدث فرقاً حقيقياً في مجتمعنا.\nرابط التحقق: https://volunova.dz/passport/${certId}`,
+      storyText: `🇩🇿 My VOLUNOVA Impact\n❤️ ${missionsCount} Missions | ⏱️ ${user.impactHours || 0} Hours\nEvery hour counts. #VolunovaDz`,
+    },
+  };
+}
+
+// GET /impact-card/me — Authenticated user's own certified card
+router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const card = await buildUserImpactCard(req.user!.userId);
+    if (!card) {
       return res.status(404).json({ ok: false, error: { message: 'Bénévole introuvable' } });
     }
+    res.json({ ok: true, data: card });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: { message: err.message } });
+  }
+});
 
-    // Count attended missions
-    const attendedApps = await Application.find({
-      volunteerId: user._id,
-      status: 'attended',
-    }).populate('missionId', 'title category impactMetrics estimatedHoursPerVolunteer');
-
-    const missionsCount = attendedApps.length;
-    let treesPlanted = 0;
-    let familiesHelped = 0;
-    let beneficiariesCount = 0;
-
-    for (const app of attendedApps) {
-      const m: any = app.missionId;
-      if (m && m.impactMetrics) {
-        treesPlanted += m.impactMetrics.treesPlanted || 0;
-        familiesHelped += m.impactMetrics.familiesAssisted || 0;
-        beneficiariesCount += m.impactMetrics.beneficiariesCount || 0;
-      }
+// GET /impact-card/user/:userId — Certified data payload by User ID
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const card = await buildUserImpactCard(req.params.userId);
+    if (!card) {
+      return res.status(404).json({ ok: false, error: { message: 'Bénévole introuvable' } });
     }
-
-    // If trees/families are 0 but user has completed missions, provide proportional community impact
-    if (missionsCount > 0 && treesPlanted === 0 && familiesHelped === 0) {
-      treesPlanted = missionsCount * 3;
-      familiesHelped = missionsCount * 4;
-      beneficiariesCount = missionsCount * 12;
-    }
-
-    let squadName = null;
-    if (user.squadId) {
-      const squad = await Squad.findById(user.squadId).select('name');
-      squadName = squad?.name || null;
-    }
-
-    const tierKey = (user.statusTier as StatusTier) || 'level_1_new';
-    const tierInfo = TIER_DEFINITIONS[tierKey] || TIER_DEFINITIONS['level_1_new'];
-
-    const certId = `VOL-DZ-${user._id.toString().slice(-6).toUpperCase()}`;
-
-    res.json({
-      ok: true,
-      data: {
-        certId,
-        user: {
-          id: user._id,
-          name: user.name,
-          city: user.city || 'Algiers',
-          neighborhood: user.neighborhood || 'Bab Ezzouar',
-          avatar: user.avatar,
-        },
-        tier: {
-          key: tierKey,
-          levelNumber: tierInfo.levelNumber,
-          titleAr: tierInfo.titleAr,
-          titleFr: tierInfo.titleFr,
-          badgeIcon: tierInfo.badgeIcon,
-        },
-        metrics: {
-          missionsCount,
-          impactHours: user.impactHours || 0,
-          treesPlanted,
-          familiesHelped,
-          beneficiariesCount: Math.max(beneficiariesCount, (user.impactHours || 0) * 2),
-          squadName,
-          totalAppreciations:
-            (user.appreciationsReceived?.thankYou || 0) +
-            (user.appreciationsReceived?.teamSpirit || 0) +
-            (user.appreciationsReceived?.vitalRole || 0) +
-            (user.appreciationsReceived?.problemSolver || 0) +
-            (user.appreciationsReceived?.mostReliable || 0) +
-            (user.appreciationsReceived?.creative || 0) +
-            (user.appreciationsReceived?.rapidResponder || 0),
-        },
-        qualitativeBadges: user.qualitativeBadges || [],
-        shareTexts: {
-          whatsapp: `🇩🇿 بصمتي في فولونوفا (VOLUNOVA)!\n❤️ ${missionsCount} مهمة تطوعية\n⏱️ ${user.impactHours || 0} ساعة في الميدان\n🌳 ${treesPlanted} شجرة مغروسة\n🤝 كل ساعة تحدث فرقاً حقيقياً في مجتمعنا.\nرابط التحقق: https://volunova.dz/passport/${certId}`,
-          storyText: `🇩🇿 My VOLUNOVA Impact\n❤️ ${missionsCount} Missions | ⏱️ ${user.impactHours || 0} Hours\nEvery hour counts. #VolunovaDz`,
-        },
-      },
-    });
+    res.json({ ok: true, data: card });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: { message: err.message } });
   }

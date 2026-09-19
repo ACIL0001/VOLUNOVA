@@ -23,6 +23,9 @@ const SignupSchema = z.object({
   orgName: z.string().optional(),
   /** Single string or multi-select list of activity sectors */
   category: z.union([z.string(), z.array(z.string())]).optional(),
+  motivations: z.array(z.string()).optional(),
+  neighborhood: z.string().optional(),
+  referredBy: z.string().optional(),
 });
 
 const LoginSchema = z.object({
@@ -30,14 +33,10 @@ const LoginSchema = z.object({
   password: z.string().min(6).max(128),
 });
 
-// POST /api/auth/signup
-router.post(
-  '/signup',
-  rateLimit(10, 60000),
-  validateBody(SignupSchema),
-  async (req: Request, res: Response) => {
-    try {
-      const { name, email, password, role, skills, orgName, city, phone, category, motivations, neighborhood, referredBy } = req.body;
+const handleSignup = async (req: Request, res: Response) => {
+  try {
+    const { name, email, password, role, skills, orgName, city, phone, category, motivations, neighborhood, referredBy } = req.body;
+
 
       const categoryNormalized = Array.isArray(category)
         ? category.map((c: string) => String(c).trim()).filter(Boolean).join(', ')
@@ -153,8 +152,11 @@ router.post(
     } catch (err: any) {
       return res.status(500).json({ ok: false, error: { code: 'SERVER_ERROR', message: err.message } });
     }
-  }
-);
+  };
+
+router.post('/signup', rateLimit(10, 60000), validateBody(SignupSchema), handleSignup);
+router.post('/register', rateLimit(10, 60000), validateBody(SignupSchema), handleSignup);
+
 
 // POST /api/auth/login
 router.post(

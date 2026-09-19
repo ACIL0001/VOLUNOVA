@@ -27,6 +27,24 @@ export const civic = {
   purpleBorder: '#e9d5ff',
   white: '#ffffff',
   overlay: 'rgba(11, 31, 58, 0.45)',
+  text: '#0b1f3a',
+  canvas: '#f3f5f8',
+  gold: '#d97706',
+  mutedSoft: '#8fa0b3',
+  tealSurface: '#e6f4f2',
+  background: '#f3f5f8',
+  backgroundAlt: '#f7f9fb',
+  red: '#dc2626',
+  amber: '#f59e0b',
+};
+
+export const civicRadius = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  pill: 9999,
 };
 
 export const civicShadow = {
@@ -50,5 +68,12 @@ export const civicShadow = {
     shadowOpacity: 0.18,
     shadowRadius: 12,
     elevation: 8,
+  },
+  header: {
+    shadowColor: '#0b1f3a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3,
   },
 };

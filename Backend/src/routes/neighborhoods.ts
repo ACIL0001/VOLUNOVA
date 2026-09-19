@@ -6,6 +6,9 @@ const router = Router();
 const NEIGHBORHOOD_METADATA: Record<string, { nameAr: string; nameFr: string; wilaya: string }> = {
   'bab-ezzouar': { nameAr: 'باب الزوار', nameFr: 'Bab Ezzouar', wilaya: 'الجزائر (Alger)' },
   'belouizdad': { nameAr: 'محمد بلوزداد', nameFr: 'Mohamed Belouizdad', wilaya: 'الجزائر (Alger)' },
+  'kouba': { nameAr: 'القبة', nameFr: 'Kouba', wilaya: 'الجزائر (Alger)' },
+  'casbah': { nameAr: 'القصبة', nameFr: 'Casbah', wilaya: 'الجزائر (Alger)' },
+  'hydra': { nameAr: 'حيدرة', nameFr: 'Hydra', wilaya: 'الجزائر (Alger)' },
   'algiers-centre': { nameAr: 'الجزائر الوسطى', nameFr: 'Alger Centre', wilaya: 'الجزائر (Alger)' },
   'oran-centre': { nameAr: 'وهران المركز', nameFr: 'Oran Centre', wilaya: 'وهران (Oran)' },
   'constantine': { nameAr: 'قسنطينة المركز', nameFr: 'Constantine Centre', wilaya: 'قسنطينة (Constantine)' },

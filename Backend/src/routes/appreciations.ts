@@ -18,13 +18,15 @@ const KIND_METADATA: Record<string, { ar: string; fr: string; field: string }> =
 // POST /appreciations — Send real human gratitude
 router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { missionId, toUserId, kind, note } = req.body;
+    const rawKind = req.body.kind || req.body.type;
+    const rawNote = req.body.note || req.body.comment;
+    const { missionId, toUserId } = req.body;
     const fromUserId = req.user!.userId;
 
-    if (!missionId || !toUserId || !kind) {
+    if (!toUserId || !rawKind) {
       return res.status(400).json({
         ok: false,
-        error: { message: 'MissionId, toUserId et type d’appréciation requis' },
+        error: { message: 'toUserId et type/kind d’appréciation requis' },
       });
     }
 
@@ -35,29 +37,43 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       });
     }
 
-    const meta = KIND_METADATA[kind];
+    const meta = KIND_METADATA[rawKind];
     if (!meta) {
       return res.status(400).json({
         ok: false,
-        error: { message: 'Type d’appréciation invalide' },
+        error: { message: `Type d’appréciation invalide: ${rawKind}` },
       });
     }
 
     // Prevent duplicate spam
-    const existing = await Appreciation.findOne({ missionId, fromUserId, toUserId });
-    if (existing) {
-      return res.status(400).json({
-        ok: false,
-        error: { message: 'Vous avez déjà exprimé votre reconnaissance pour cette mission.' },
+    if (missionId) {
+      const existing = await Appreciation.findOne({ missionId, fromUserId, toUserId });
+      if (existing) {
+        return res.status(400).json({
+          ok: false,
+          error: { message: 'Vous avez déjà exprimé votre reconnaissance pour cette mission.' },
+        });
+      }
+    } else {
+      const recent = await Appreciation.findOne({
+        fromUserId,
+        toUserId,
+        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       });
+      if (recent) {
+        return res.status(400).json({
+          ok: false,
+          error: { message: 'Vous avez déjà exprimé votre reconnaissance à ce bénévole aujourd’hui.' },
+        });
+      }
     }
 
     const appreciation = new Appreciation({
-      missionId,
+      missionId: missionId || null,
       fromUserId,
       toUserId,
-      kind,
-      note: note ? note.trim() : '',
+      kind: rawKind,
+      note: rawNote ? rawNote.trim() : '',
     });
 
     await appreciation.save();
@@ -92,7 +108,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
         payload: {
           title: 'تقدير إنساني جديد من القلب ❤️',
           body: `أرسل لك ${sender?.name || 'أحد رفقاء الميدان'}: "${meta.ar}"`,
-          appreciationKind: kind,
+          appreciationKind: rawKind,
           missionId,
         },
       });

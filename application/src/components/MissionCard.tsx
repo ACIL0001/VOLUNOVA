@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MapPin, Clock, Flame, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { civic, civicShadow } from '../theme/civic';
 import { useTranslation } from '../context/LanguageContext';
-import ProgressBar from './ProgressBar';
+import { CivicProgress } from './ui/Civic';
 
 export type MissionCardData = {
   _id: string;
@@ -18,6 +18,23 @@ export type MissionCardData = {
   orgId?: { name?: string };
 };
 
+export function fillPercent(filled = 0, needed = 0): number {
+  if (!needed || needed <= 0) return 0;
+  return Math.min(100, Math.round((filled / needed) * 100));
+}
+
+export function localizeCategory(category: string | undefined, t: (k: string) => string): string {
+  if (!category) return '';
+  const key = `categories.${category}`;
+  const val = t(key);
+  return val !== key ? val : category;
+}
+
+export function localizeUrgency(urgency: string | undefined, t: (k: string) => string): string {
+  const u = urgency || 'medium';
+  return t(`urgency.${u}`);
+}
+
 const URGENCY_KEY: Record<string, string> = {
   urgent: 'urgency.urgent',
   high: 'urgency.high',
@@ -25,17 +42,30 @@ const URGENCY_KEY: Record<string, string> = {
   low: 'urgency.low',
 };
 
+export interface MissionCardProps {
+  mission: MissionCardData;
+  onOpen: () => void;
+  t?: (path: string, vars?: Record<string, string | number>) => string;
+  textAlign?: 'left' | 'right';
+  flexDirection?: 'row' | 'row-reverse';
+}
+
 export default function MissionCard({
   mission,
   onOpen,
-}: {
-  mission: MissionCardData;
-  onOpen: () => void;
-}) {
-  const { t, isRTL, textAlign, flexDirection } = useTranslation();
+  t: propT,
+  textAlign: propTextAlign,
+  flexDirection: propFlexDirection,
+}: MissionCardProps) {
+  const ctx = useTranslation();
+  const t = propT || ctx.t;
+  const textAlign = propTextAlign || ctx.textAlign;
+  const flexDirection = propFlexDirection || ctx.flexDirection;
+  const isRTL = ctx.isRTL;
+
   const needed = mission.totalSlotsNeeded || 0;
   const filled = mission.totalSlotsFilled || 0;
-  const pct = needed > 0 ? Math.round((filled / needed) * 100) : 0;
+  const pct = fillPercent(filled, needed);
   const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
   const urgencyKey = URGENCY_KEY[mission.urgency || 'medium'] || 'urgency.medium';
   const categoryKey = mission.category && t(`categories.${mission.category}`) !== `categories.${mission.category}`
@@ -90,7 +120,7 @@ export default function MissionCard({
             {filled} / {needed} ({pct}%)
           </Text>
         </View>
-        <ProgressBar percent={pct} />
+        <CivicProgress pct={pct} />
         <TouchableOpacity style={styles.cta} onPress={onOpen} activeOpacity={0.85}>
           <Text style={styles.ctaText}>{t('missions.open_ops_room')}</Text>
           <ArrowIcon size={14} color={civic.navy} />
